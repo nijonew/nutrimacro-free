@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Build a Recipe</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+<style>
+
+  .ingredient-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .ingredient-row:last-child { border-bottom: none; }
+
+  .ingredient-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .ingredient-row input, .ingredient-row select {
+    margin-bottom: 0;
+    width: 70px;
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  .ingredient-row select { width: 78px; }
+
+  .remove-btn {
+    width: auto;
+    padding: 6px 10px;
+    font-size: 16px;
+    background: transparent;
+    border: none;
+    color: var(--error);
+    line-height: 1;
+  }
+
+  .result-item.checkable {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .result-item.checkable input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  .summary-grid .label { color: var(--ink-soft); }
+  .summary-grid .value { font-weight: 700; font-family: 'Manrope', sans-serif; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Recipes</div>
+    <h1>Build a Recipe</h1>
+  </div>
+  <a class="back" href="./index.html">&larr; Home</a>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Recipe name</h2>
+    <input type="text" id="recipeNameInput" placeholder="e.g. Chicken Stir Fry">
+    <div class="helper">Using the exact name of an existing recipe adds these ingredients to it instead of starting a new one.</div>
+  </div>
+
+  <div class="card">
+    <h2>Add ingredients</h2>
+    <label for="ingredientSearch">Search your Foods</label>
+    <input type="text" id="ingredientSearch" placeholder="Start typing a saved food..." oninput="onIngredientSearch()">
+    <div class="result-list" id="ingredientResults" style="display:none;"></div>
+    <button class="secondary" id="addSelectedBtn" style="display:none; margin-top:10px;" onclick="addSelectedIngredients()">Add Selected (<span id="selectedCount">0</span>)</button>
+    <div class="helper" style="margin-bottom:0; margin-top:10px;">Ingredients come from your Foods list. Import new foods from the Log screen first if something's missing.</div>
+  </div>
+
+  <div class="card" id="ingredientListCard" style="display:none;">
+    <h2>Ingredients (<span id="ingredientCount">0</span>)</h2>
+    <div id="ingredientList"></div>
+  </div>
+
+  <div class="card">
+    <button onclick="saveRecipe()">Save Recipe</button>
+    <div class="result-box" id="saveResultBox"></div>
+    <div id="summaryBlock" style="display:none; margin-top:14px;">
+      <h2 style="margin-bottom:8px;">Recipe Summary</h2>
+      <div class="summary-grid">
+        <div class="label">Total Weight</div><div class="value" id="sumWeight"></div>
+        <div class="label">Calories</div><div class="value" id="sumCalories"></div>
+        <div class="label">Protein</div><div class="value" id="sumProtein"></div>
+        <div class="label">Fat</div><div class="value" id="sumFat"></div>
+        <div class="label">Carbs</div><div class="value" id="sumCarbs"></div>
+        <div class="label">Fiber</div><div class="value" id="sumFiber"></div>
+        <div class="label">Cal / gram</div><div class="value" id="sumCalPerGram"></div>
+        <div class="label">Protein / gram</div><div class="value" id="sumProteinPerGram"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="./app.js"></script>
+<script>
+
+let localFoodNames = [];
+let ingredients = []; // { name, amount, unit }
+let selectedNames = new Set();
+
+window.addEventListener("load", function() {
+
+  if (!isConfigured()) {
+    window.location.href = "./index.html";
+    return;
+  }
+
+  registerServiceWorker();
+
+  apiGet("getFoodNames").then(function(json) {
+    if (json.success) localFoodNames = json.data;
+  });
+
+});
+
+function onIngredientSearch() {
+
+  const query = document.getElementById("ingredientSearch").value.trim().toLowerCase();
+  const resultsBox = document.getElementById("ingredientResults");
+
+  selectedNames.clear();
+  updateSelectedCount();
+
+  if (query.length === 0) {
+    resultsBox.style.display = "none";
+    return;
+  }
+
+  const matches = localFoodNames
+    .filter(function(name) { return name.toLowerCase().indexOf(query) !== -1; })
+    .slice(0, 8);
+
+  resultsBox.style.display = "block";
+
+  if (matches.length === 0) {
+    resultsBox.innerHTML = "<div class='empty-state'>No matches in your Foods list.</div>";
+    return;
+  }
+
+  resultsBox.innerHTML = matches.map(function(name) {
+    const safeId = "chk_" + btoa(unescape(encodeURIComponent(name))).replace(/[^a-zA-Z0-9]/g, "");
+    return "<div class='result-item checkable'>" +
+      "<input type='checkbox' id='" + safeId + "' onchange='toggleSelected(" + JSON.stringify(name) + ", this.checked)'>" +
+      "<label for='" + safeId + "' class='item-name' style='flex:1; margin:0; font-weight:600; color:var(--ink);'>" + escapeHtml(name) + "</label>" +
+    "</div>";
+  }).join("");
+
+}
+
+function toggleSelected(name, checked) {
+  if (checked) {
+    selectedNames.add(name);
+  } else {
+    selectedNames.delete(name);
+  }
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  const count = selectedNames.size;
+  document.getElementById("selectedCount").textContent = count;
+  document.getElementById("addSelectedBtn").style.display = count > 0 ? "block" : "none";
+}
+
+function addSelectedIngredients() {
+
+  selectedNames.forEach(function(name) {
+    ingredients.push({ name: name, amount: "", unit: "g" });
+  });
+
+  selectedNames.clear();
+  document.getElementById("ingredientSearch").value = "";
+  document.getElementById("ingredientResults").style.display = "none";
+  updateSelectedCount();
+
+  renderIngredients();
+
+}
+
+function removeIngredient(index) {
+  ingredients.splice(index, 1);
+  renderIngredients();
+}
+
+function updateIngredientAmount(index, value) {
+  ingredients[index].amount = value;
+}
+
+function updateIngredientUnit(index, value) {
+  ingredients[index].unit = value;
+}
+
+function renderIngredients() {
+
+  const card = document.getElementById("ingredientListCard");
+  const list = document.getElementById("ingredientList");
+
+  document.getElementById("ingredientCount").textContent = ingredients.length;
+
+  if (ingredients.length === 0) {
+    card.style.display = "none";
+    return;
+  }
+
+  card.style.display = "block";
+
+  list.innerHTML = ingredients.map(function(ing, i) {
+    return "<div class='ingredient-row'>" +
+      "<span class='ingredient-name'>" + escapeHtml(ing.name) + "</span>" +
+      "<input type='text' placeholder='amt' value='" + escapeHtml(ing.amount) + "' " +
+        "onchange='updateIngredientAmount(" + i + ", this.value)'>" +
+      "<select onchange='updateIngredientUnit(" + i + ", this.value)'>" +
+        ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz"].map(function(u) {
+          return "<option value='" + u + "'" + (ing.unit === u ? " selected" : "") + ">" + u + "</option>";
+        }).join("") +
+      "</select>" +
+      "<button class='remove-btn' onclick='removeIngredient(" + i + ")'>&times;</button>" +
+    "</div>";
+  }).join("");
+
+}
+
+function parseAmount(str) {
+
+  str = String(str).trim();
+
+  const mixedMatch = str.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixedMatch) {
+    const whole = parseInt(mixedMatch[1], 10);
+    const num = parseInt(mixedMatch[2], 10);
+    const denom = parseInt(mixedMatch[3], 10);
+    if (denom === 0) return NaN;
+    return whole + (num / denom);
+  }
+
+  const fractionMatch = str.match(/^(\d+)\/(\d+)$/);
+  if (fractionMatch) {
+    const num = parseInt(fractionMatch[1], 10);
+    const denom = parseInt(fractionMatch[2], 10);
+    if (denom === 0) return NaN;
+    return num / denom;
+  }
+
+  return parseFloat(str);
+
+}
+
+function saveRecipe() {
+
+  const recipeName = document.getElementById("recipeNameInput").value.trim();
+  const resultBox = document.getElementById("saveResultBox");
+
+  if (!recipeName) {
+    showSaveResult(false, "Enter a recipe name.");
+    return;
+  }
+
+  if (ingredients.length === 0) {
+    showSaveResult(false, "Add at least one ingredient.");
+    return;
+  }
+
+  const payloadIngredients = [];
+
+  for (let i = 0; i < ingredients.length; i++) {
+
+    const amount = parseAmount(ingredients[i].amount);
+
+    if (!amount || isNaN(amount) || amount <= 0) {
+      showSaveResult(false, "Enter a valid amount for \"" + ingredients[i].name + "\".");
+      return;
+    }
+
+    payloadIngredients.push({
+      ingredient: ingredients[i].name,
+      amount: amount,
+      unit: ingredients[i].unit
+    });
+
+  }
+
+  showSaveResult(true, "Saving...");
+
+  apiPost("saveRecipe", {
+    recipeName: recipeName,
+    ingredients: payloadIngredients
+  }).then(function(json) {
+
+    if (!json.success) {
+      showSaveResult(false, json.error);
+      return;
+    }
+
+    showSaveResult(true, "Saved \"" + recipeName + "\".");
+    showSummary(json.data);
+
+    // Reset the ingredient builder for a fresh recipe, keep the name
+    // in case the person wants to immediately add more to the same one.
+    ingredients = [];
+    renderIngredients();
+
+  }).catch(function(err) {
+    showSaveResult(false, "Could not reach the backend: " + err.message);
+  });
+
+}
+
+function showSaveResult(ok, message) {
+  const box = document.getElementById("saveResultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+function showSummary(summary) {
+
+  document.getElementById("summaryBlock").style.display = "block";
+  document.getElementById("sumWeight").textContent = summary.totalWeight + (summary.weightIsPartial ? "" : "g");
+  document.getElementById("sumCalories").textContent = summary.calories;
+  document.getElementById("sumProtein").textContent = summary.protein + "g";
+  document.getElementById("sumFat").textContent = summary.fat + "g";
+  document.getElementById("sumCarbs").textContent = summary.carbs + "g";
+  document.getElementById("sumFiber").textContent = summary.fiber + "g";
+  document.getElementById("sumCalPerGram").textContent = summary.calPerGram;
+  document.getElementById("sumProteinPerGram").textContent = summary.proteinPerGram;
+
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>

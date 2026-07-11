@@ -42,8 +42,40 @@
   .total-tile.carbs .value { color: var(--carbs); }
   .total-tile.fat .value { color: var(--fat); }
 
+  .meal-group { margin-bottom: 18px; }
+  .meal-group:last-child { margin-bottom: 0; }
+
+  .meal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+
+  .meal-header h3 {
+    font-family: 'Manrope', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  .meal-header .meal-cal {
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  .repeat-btn {
+    width: auto;
+    padding: 5px 10px;
+    font-size: 11px;
+    background: var(--bg);
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    margin-top: 6px;
+  }
+
   .entry-row {
-    padding: 12px 0;
+    padding: 10px 0;
     border-bottom: 1px solid var(--line);
   }
 
@@ -57,13 +89,6 @@
   }
 
   .entry-name { font-weight: 600; }
-  .entry-meal {
-    font-size: 11px;
-    color: var(--ink-soft);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 700;
-  }
 
   .entry-meta {
     font-size: 12px;
@@ -157,6 +182,9 @@
 <script src="./app.js"></script>
 <script>
 
+const MEAL_ORDER = ["Breakfast", "Lunch", "Dinner", "Snack"];
+let currentEntries = [];
+
 window.addEventListener("load", function() {
 
   if (!isConfigured()) {
@@ -169,6 +197,10 @@ window.addEventListener("load", function() {
   loadDay();
 
 });
+
+function todayString() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function onDateChange() {
   loadDay();
@@ -197,8 +229,9 @@ function loadDay() {
       return;
     }
 
+    currentEntries = json.data.entries;
     setTotals(json.data.totals);
-    renderEntries(json.data.entries);
+    renderGroupedEntries(json.data.entries, date);
 
   }).catch(function(err) {
     document.getElementById("entriesList").innerHTML =
@@ -216,7 +249,7 @@ function setTotals(totals) {
   document.getElementById("totalNetCarbs").textContent = totals.netCarbs;
 }
 
-function renderEntries(entries) {
+function renderGroupedEntries(entries, viewedDate) {
 
   const container = document.getElementById("entriesList");
 
@@ -225,22 +258,79 @@ function renderEntries(entries) {
     return;
   }
 
-  container.innerHTML = entries.map(function(e) {
-    return "<div class='entry-row'>" +
-      "<div class='entry-top'>" +
-        "<span class='entry-name'>" + escapeHtml(e.name) + "</span>" +
-        "<span class='entry-meal'>" + escapeHtml(e.meal) + "</span>" +
-      "</div>" +
-      "<div class='entry-meta'>" +
-        e.amount + " " + escapeHtml(e.unit) + " &middot; " +
-        e.calories + " cal &middot; " +
-        "<span class='protein'>" + e.protein + "g P</span> &middot; " +
-        "<span class='carbs'>" + e.carbs + "g C</span> &middot; " +
-        "<span class='fat'>" + e.fat + "g F</span>" +
-      "</div>" +
-      (e.notes ? "<div class='entry-meta'>" + escapeHtml(e.notes) + "</div>" : "") +
+  // Group by meal, preserving a sensible fixed order, with any
+  // unrecognized meal names appended at the end.
+  const groups = {};
+  entries.forEach(function(e) {
+    const meal = e.meal || "Other";
+    if (!groups[meal]) groups[meal] = [];
+    groups[meal].push(e);
+  });
+
+  const mealNames = Object.keys(groups).sort(function(a, b) {
+    const ai = MEAL_ORDER.indexOf(a);
+    const bi = MEAL_ORDER.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  const isPastDay = viewedDate !== todayString();
+
+  container.innerHTML = mealNames.map(function(meal) {
+
+    const mealEntries = groups[meal];
+    const mealCalories = mealEntries.reduce(function(sum, e) { return sum + (Number(e.calories) || 0); }, 0);
+
+    const entriesHtml = mealEntries.map(function(e) {
+      return "<div class='entry-row'>" +
+        "<div class='entry-top'>" +
+          "<span class='entry-name'>" + escapeHtml(e.name) + "</span>" +
+        "</div>" +
+        "<div class='entry-meta'>" +
+          e.amount + " " + escapeHtml(e.unit) + " &middot; " +
+          e.calories + " cal &middot; " +
+          "<span class='protein'>" + e.protein + "g P</span> &middot; " +
+          "<span class='carbs'>" + e.carbs + "g C</span> &middot; " +
+          "<span class='fat'>" + e.fat + "g F</span>" +
+        "</div>" +
+        (e.notes ? "<div class='entry-meta'>" + escapeHtml(e.notes) + "</div>" : "") +
+      "</div>";
+    }).join("");
+
+    const repeatButton = isPastDay
+      ? "<button class='repeat-btn' onclick='repeatMealToToday(" + JSON.stringify(viewedDate) + ", " + JSON.stringify(meal) + ")'>Repeat this meal to today</button>"
+      : "";
+
+    return "<div class='meal-group'>" +
+      "<div class='meal-header'><h3>" + escapeHtml(meal) + "</h3>" +
+      "<span class='meal-cal'>" + Math.round(mealCalories) + " cal</span></div>" +
+      entriesHtml +
+      repeatButton +
     "</div>";
+
   }).join("");
+
+}
+
+function repeatMealToToday(sourceDate, meal) {
+
+  if (!confirm("Repeat " + meal + " from " + sourceDate + " to today?")) return;
+
+  apiPost("repeatMeal", {
+    sourceDate: sourceDate,
+    meal: meal,
+    targetDate: todayString()
+  }).then(function(json) {
+
+    if (!json.success) {
+      alert("Could not repeat meal: " + json.error);
+      return;
+    }
+
+    alert("Added " + json.data.count + " item(s) to today.");
+
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
 
 }
 

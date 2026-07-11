@@ -10,52 +10,129 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./style.css">
+<style>
+
+  .totals-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  .total-tile {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 12px 10px;
+    text-align: center;
+  }
+
+  .total-tile .value {
+    font-family: 'Manrope', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+  }
+
+  .total-tile .label {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+
+  .total-tile.protein .value { color: var(--protein); }
+  .total-tile.carbs .value { color: var(--carbs); }
+  .total-tile.fat .value { color: var(--fat); }
+
+  .nav-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .nav-grid button { font-size: 13px; padding: 12px 10px; }
+
+  .gear {
+    text-decoration: none;
+    color: var(--ink-soft);
+    font-size: 20px;
+    padding: 4px;
+  }
+
+</style>
 </head>
 <body>
 
 <header>
   <div class="titles">
-    <div class="eyebrow">Setup</div>
+    <div class="eyebrow" id="dateLabel">Today</div>
     <h1>Nutrition Tracker</h1>
   </div>
+  <a class="gear" href="./settings.html" title="Settings">&#9881;</a>
 </header>
 
 <main>
 
-  <div class="card">
-    <h2>Connect to your backend</h2>
-    <label for="apiUrl">Apps Script Web App URL</label>
-    <input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec">
-    <label for="apiToken">API Token</label>
-    <input type="password" id="apiToken" placeholder="your token">
-    <div class="helper">Saved on this device only — never sent anywhere except your own backend.</div>
-    <button onclick="saveConfigAndTest()">Save & Test Connection</button>
-    <div class="status-row" id="statusRow" style="margin-top:14px;">
-      <div class="dot" id="statusDot"></div>
-      <span id="statusText">Not connected yet</span>
-    </div>
-    <div class="result-box" id="resultBox"></div>
-  </div>
-
-  <div class="card" id="goCard" style="display:none;">
-    <h2>Ready</h2>
-    <a href="./log.html" style="text-decoration:none;">
-      <button>Log Food or Recipe</button>
-    </a>
-    <div style="height:10px;"></div>
-    <a href="./today.html" style="text-decoration:none;">
-      <button class="secondary">View Today</button>
+  <div class="card" id="notConfiguredCard" style="display:none;">
+    <h2>Get started</h2>
+    <div class="helper">Connect to your backend to begin.</div>
+    <a href="./settings.html" style="text-decoration:none;">
+      <button>Go to Settings</button>
     </a>
   </div>
 
-  <div class="card">
-    <h2>Macro key</h2>
-    <div class="helper">Used consistently across the app.</div>
-    <div class="macro-key">
-      <span><div class="swatch protein"></div>Protein</span>
-      <span><div class="swatch carbs"></div>Carbs</span>
-      <span><div class="swatch fat"></div>Fat</span>
+  <div id="mainContent" style="display:none;">
+
+    <div class="card">
+      <h2>Today so far</h2>
+      <div class="totals-grid">
+        <div class="total-tile">
+          <div class="value" id="totalCalories">–</div>
+          <div class="label">Calories</div>
+        </div>
+        <div class="total-tile protein">
+          <div class="value" id="totalProtein">–</div>
+          <div class="label">Protein (g)</div>
+        </div>
+        <div class="total-tile carbs">
+          <div class="value" id="totalCarbs">–</div>
+          <div class="label">Carbs (g)</div>
+        </div>
+        <div class="total-tile fat">
+          <div class="value" id="totalFat">–</div>
+          <div class="label">Fat (g)</div>
+        </div>
+        <div class="total-tile">
+          <div class="value" id="totalFiber">–</div>
+          <div class="label">Fiber (g)</div>
+        </div>
+        <div class="total-tile">
+          <div class="value" id="totalNetCarbs">–</div>
+          <div class="label">Net Carbs (g)</div>
+        </div>
+      </div>
+      <div style="height:12px;"></div>
+      <a href="./today.html" style="text-decoration:none;">
+        <button class="secondary">View Full Day</button>
+      </a>
     </div>
+
+    <div class="card">
+      <h2>Quick actions</h2>
+      <div class="nav-grid">
+        <a href="./log.html" style="text-decoration:none;"><button>Log Food/Recipe</button></a>
+        <a href="./recipe.html" style="text-decoration:none;"><button class="secondary">Build a Recipe</button></a>
+        <a href="./add-food.html" style="text-decoration:none;"><button class="secondary">Add Food Manually</button></a>
+        <a href="./edit-food.html" style="text-decoration:none;"><button class="secondary">Edit a Food</button></a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Workouts</h2>
+      <div class="nav-grid">
+        <a href="./workout.html" style="text-decoration:none;"><button>Log Workout</button></a>
+        <a href="./workout-history.html" style="text-decoration:none;"><button class="secondary">Workout History</button></a>
+        <a href="./workout-templates.html" style="text-decoration:none;"><button class="secondary">Build a Template</button></a>
+      </div>
+    </div>
+
   </div>
 
 </main>
@@ -65,75 +142,39 @@
 
 window.addEventListener("load", function() {
 
-  const params = new URLSearchParams(window.location.search);
-  const paramUrl = params.get("apiUrl");
-  const paramToken = params.get("apiToken");
-
-  let config;
-
-  if (paramUrl && paramToken) {
-    saveConfig(paramUrl, paramToken);
-    config = { url: paramUrl, token: paramToken };
-    const cleanUrl = window.location.origin + window.location.pathname;
-    window.history.replaceState({}, document.title, cleanUrl);
-  } else {
-    config = loadConfig();
-  }
-
-  document.getElementById("apiUrl").value = config.url;
-  document.getElementById("apiToken").value = config.token;
-
-  if (config.url && config.token) {
-    testConnection(config.url, config.token);
-  }
-
   registerServiceWorker();
 
-});
-
-function saveConfigAndTest() {
-  const url = document.getElementById("apiUrl").value;
-  const token = document.getElementById("apiToken").value;
-
-  if (!url || !token) {
-    setStatus(false, "Enter both the URL and token first.");
+  if (!isConfigured()) {
+    document.getElementById("notConfiguredCard").style.display = "block";
     return;
   }
 
-  saveConfig(url, token);
-  testConnection(url, token);
-}
+  document.getElementById("mainContent").style.display = "block";
+  loadToday();
 
-function setStatus(ok, message) {
-  const dot = document.getElementById("statusDot");
-  dot.className = "dot " + (ok ? "ok" : "error");
-  document.getElementById("statusText").textContent = message;
-}
+});
 
-function showResult(ok, message) {
-  const box = document.getElementById("resultBox");
-  box.className = "result-box " + (ok ? "ok" : "error");
-  box.textContent = message;
-}
+function loadToday() {
 
-function testConnection(url, token) {
+  const today = new Date().toISOString().slice(0, 10);
 
-  setStatus(false, "Connecting...");
-
-  apiGet("ping").then(function(json) {
+  apiGet("getDailyLogEntries", { date: today }).then(function(json) {
     if (json.success) {
-      setStatus(true, "Connected");
-      showResult(true, "Backend responded: " + json.data.message);
-      document.getElementById("goCard").style.display = "block";
-    } else {
-      setStatus(false, "Connection failed");
-      showResult(false, "Error from backend: " + json.error);
+      setTotals(json.data.totals);
     }
   }).catch(function(err) {
-    setStatus(false, "Connection failed");
-    showResult(false, "Could not reach the backend: " + err.message);
+    console.log("Could not load today's totals:", err.message);
   });
 
+}
+
+function setTotals(totals) {
+  document.getElementById("totalCalories").textContent = totals.calories;
+  document.getElementById("totalProtein").textContent = totals.protein;
+  document.getElementById("totalCarbs").textContent = totals.carbs;
+  document.getElementById("totalFat").textContent = totals.fat;
+  document.getElementById("totalFiber").textContent = totals.fiber;
+  document.getElementById("totalNetCarbs").textContent = totals.netCarbs;
 }
 
 </script>

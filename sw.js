@@ -3,11 +3,18 @@
 // It only lets the app's own shell (HTML/CSS/JS) load instantly and
 // work even with a flaky connection.
 
-const CACHE_NAME = "nutrition-app-shell-v3";
+const CACHE_NAME = "nutrition-app-shell-v5";
 const SHELL_FILES = [
   "./index.html",
   "./log.html",
   "./today.html",
+  "./recipe.html",
+  "./settings.html",
+  "./add-food.html",
+  "./edit-food.html",
+  "./workout.html",
+  "./workout-history.html",
+  "./workout-templates.html",
   "./manifest.json",
   "./style.css",
   "./app.js"

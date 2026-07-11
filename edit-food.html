@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Edit Food</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Foods</div>
+    <h1>Edit a Food</h1>
+  </div>
+  <a class="back" href="./index.html">&larr; Home</a>
+</header>
+
+<main>
+
+  <div class="card" id="searchCard">
+    <h2>Find a food</h2>
+    <label for="searchInput">Search</label>
+    <input type="text" id="searchInput" placeholder="Start typing..." oninput="onSearchInput()">
+    <div class="result-list" id="results"></div>
+  </div>
+
+  <div class="card" id="editCard" style="display:none;">
+    <h2>Edit details</h2>
+
+    <input type="hidden" id="originalName">
+
+    <label for="nameInput">Food Name *</label>
+    <input type="text" id="nameInput">
+
+    <label for="brandInput">Brand</label>
+    <input type="text" id="brandInput">
+
+    <div class="row-2">
+      <div>
+        <label for="servingSizeInput">Serving Size *</label>
+        <input type="text" id="servingSizeInput">
+      </div>
+      <div>
+        <label for="servingUnitSelect">Serving Unit *</label>
+        <select id="servingUnitSelect">
+          <option value="g">g</option>
+          <option value="kg">kg</option>
+          <option value="oz">oz</option>
+          <option value="lb">lb</option>
+          <option value="ml">ml</option>
+          <option value="l">l</option>
+          <option value="tsp">tsp</option>
+          <option value="tbsp">tbsp</option>
+          <option value="cup">cup</option>
+          <option value="fl_oz">fl oz</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div>
+        <label for="caloriesInput">Calories *</label>
+        <input type="text" id="caloriesInput">
+      </div>
+      <div>
+        <label for="proteinInput">Protein (g) *</label>
+        <input type="text" id="proteinInput">
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div>
+        <label for="fatInput">Fat (g) *</label>
+        <input type="text" id="fatInput">
+      </div>
+      <div>
+        <label for="carbsInput">Carbs (g) *</label>
+        <input type="text" id="carbsInput">
+      </div>
+    </div>
+
+    <label for="fiberInput">Fiber (g)</label>
+    <input type="text" id="fiberInput">
+
+    <label for="notesInput">Notes</label>
+    <textarea id="notesInput" rows="2"></textarea>
+
+    <button onclick="saveChanges()">Save Changes</button>
+    <button class="secondary" style="margin-top:10px;" onclick="cancelEdit()">Cancel / Search Again</button>
+    <div class="result-box" id="resultBox"></div>
+
+  </div>
+
+</main>
+
+<script src="./app.js"></script>
+<script>
+
+let localFoodNames = [];
+
+window.addEventListener("load", function() {
+
+  if (!isConfigured()) {
+    window.location.href = "./index.html";
+    return;
+  }
+
+  registerServiceWorker();
+
+  apiGet("getFoodNames").then(function(json) {
+    if (json.success) localFoodNames = json.data;
+  });
+
+});
+
+function onSearchInput() {
+
+  const query = document.getElementById("searchInput").value.trim().toLowerCase();
+  const container = document.getElementById("results");
+
+  if (query.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const matches = localFoodNames
+    .filter(function(name) { return name.toLowerCase().indexOf(query) !== -1; })
+    .slice(0, 8);
+
+  if (matches.length === 0) {
+    container.innerHTML = "<div class='empty-state'>No matches.</div>";
+    return;
+  }
+
+  container.innerHTML = matches.map(function(name) {
+    return "<div class='result-item' onclick='loadFood(" + JSON.stringify(name) + ")'>" +
+      "<div class='item-name'>" + escapeHtml(name) + "</div>" +
+    "</div>";
+  }).join("");
+
+}
+
+function loadFood(name) {
+
+  apiGet("getFoodDetails", { name: name }).then(function(json) {
+
+    if (!json.success) {
+      alert("Could not load food: " + json.error);
+      return;
+    }
+
+    const f = json.data;
+
+    document.getElementById("originalName").value = f.name;
+    document.getElementById("nameInput").value = f.name;
+    document.getElementById("brandInput").value = f.brand || "";
+    document.getElementById("servingSizeInput").value = f.servingSize;
+    document.getElementById("servingUnitSelect").value = f.servingUnit;
+    document.getElementById("caloriesInput").value = f.calories;
+    document.getElementById("proteinInput").value = f.protein;
+    document.getElementById("fatInput").value = f.fat;
+    document.getElementById("carbsInput").value = f.carbs;
+    document.getElementById("fiberInput").value = f.fiber;
+    document.getElementById("notesInput").value = f.notes || "";
+
+    document.getElementById("searchCard").style.display = "none";
+    document.getElementById("editCard").style.display = "block";
+    document.getElementById("resultBox").className = "result-box";
+    document.getElementById("resultBox").textContent = "";
+
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+
+}
+
+function cancelEdit() {
+  document.getElementById("searchCard").style.display = "block";
+  document.getElementById("editCard").style.display = "none";
+  document.getElementById("searchInput").value = "";
+  document.getElementById("results").innerHTML = "";
+}
+
+function saveChanges() {
+
+  const originalName = document.getElementById("originalName").value;
+
+  const fields = {
+    name: document.getElementById("nameInput").value.trim(),
+    brand: document.getElementById("brandInput").value.trim(),
+    servingSize: parseFloat(document.getElementById("servingSizeInput").value),
+    servingUnit: document.getElementById("servingUnitSelect").value,
+    calories: parseFloat(document.getElementById("caloriesInput").value),
+    protein: parseFloat(document.getElementById("proteinInput").value),
+    fat: parseFloat(document.getElementById("fatInput").value),
+    carbs: parseFloat(document.getElementById("carbsInput").value),
+    fiber: parseFloat(document.getElementById("fiberInput").value) || 0,
+    notes: document.getElementById("notesInput").value.trim()
+  };
+
+  if (!fields.name) { showResult(false, "Food name is required."); return; }
+  if (!fields.servingSize || isNaN(fields.servingSize) || fields.servingSize <= 0) {
+    showResult(false, "Enter a valid serving size.");
+    return;
+  }
+
+  showResult(true, "Saving...");
+
+  apiPost("updateFood", { originalName: originalName, fields: fields }).then(function(json) {
+
+    if (!json.success) {
+      showResult(false, json.error);
+      return;
+    }
+
+    showResult(true, "Saved changes to \"" + json.data.name + "\".");
+
+    // Update local cache in case the name changed
+    const idx = localFoodNames.indexOf(originalName);
+    if (idx !== -1) localFoodNames[idx] = json.data.name;
+
+  }).catch(function(err) {
+    showResult(false, "Could not reach the backend: " + err.message);
+  });
+
+}
+
+function showResult(ok, message) {
+  const box = document.getElementById("resultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>

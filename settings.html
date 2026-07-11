@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Settings</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Setup</div>
+    <h1>Settings</h1>
+  </div>
+  <a class="back" href="./index.html">&larr; Home</a>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Connect to your backend</h2>
+    <label for="apiUrl">Apps Script Web App URL</label>
+    <input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    <label for="apiToken">API Token</label>
+    <input type="password" id="apiToken" placeholder="your token">
+    <div class="helper">Saved on this device only — never sent anywhere except your own backend.</div>
+    <button onclick="saveConfigAndTest()">Save & Test Connection</button>
+    <div class="status-row" id="statusRow" style="margin-top:14px;">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">Not connected yet</span>
+    </div>
+    <div class="result-box" id="resultBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>Macro key</h2>
+    <div class="helper">Used consistently across the app.</div>
+    <div class="macro-key">
+      <span><div class="swatch protein"></div>Protein</span>
+      <span><div class="swatch carbs"></div>Carbs</span>
+      <span><div class="swatch fat"></div>Fat</span>
+    </div>
+  </div>
+
+</main>
+
+<script src="./app.js"></script>
+<script>
+
+window.addEventListener("load", function() {
+
+  const params = new URLSearchParams(window.location.search);
+  const paramUrl = params.get("apiUrl");
+  const paramToken = params.get("apiToken");
+
+  let config;
+
+  if (paramUrl && paramToken) {
+    saveConfig(paramUrl, paramToken);
+    config = { url: paramUrl, token: paramToken };
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+  } else {
+    config = loadConfig();
+  }
+
+  document.getElementById("apiUrl").value = config.url;
+  document.getElementById("apiToken").value = config.token;
+
+  if (config.url && config.token) {
+    testConnection();
+  }
+
+  registerServiceWorker();
+
+});
+
+function saveConfigAndTest() {
+  const url = document.getElementById("apiUrl").value;
+  const token = document.getElementById("apiToken").value;
+
+  if (!url || !token) {
+    setStatus(false, "Enter both the URL and token first.");
+    return;
+  }
+
+  saveConfig(url, token);
+  testConnection();
+}
+
+function setStatus(ok, message) {
+  const dot = document.getElementById("statusDot");
+  dot.className = "dot " + (ok ? "ok" : "error");
+  document.getElementById("statusText").textContent = message;
+}
+
+function showResult(ok, message) {
+  const box = document.getElementById("resultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+function testConnection() {
+
+  setStatus(false, "Connecting...");
+
+  apiGet("ping").then(function(json) {
+    if (json.success) {
+      setStatus(true, "Connected");
+      showResult(true, "Backend responded: " + json.data.message);
+    } else {
+      setStatus(false, "Connection failed");
+      showResult(false, "Error from backend: " + json.error);
+    }
+  }).catch(function(err) {
+    setStatus(false, "Connection failed");
+    showResult(false, "Could not reach the backend: " + err.message);
+  });
+
+}
+
+</script>
+
+</body>
+</html>

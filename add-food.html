@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Add Food</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Foods</div>
+    <h1>Add Food Manually</h1>
+  </div>
+  <a class="back" href="./index.html">&larr; Home</a>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Food details</h2>
+
+    <label for="nameInput">Food Name *</label>
+    <input type="text" id="nameInput" placeholder="e.g. Homemade Granola">
+
+    <label for="brandInput">Brand (optional)</label>
+    <input type="text" id="brandInput" placeholder="e.g. Homemade">
+
+    <div class="row-2">
+      <div>
+        <label for="servingSizeInput">Serving Size *</label>
+        <input type="text" id="servingSizeInput" placeholder="e.g. 100">
+      </div>
+      <div>
+        <label for="servingUnitSelect">Serving Unit *</label>
+        <select id="servingUnitSelect">
+          <option value="g">g</option>
+          <option value="kg">kg</option>
+          <option value="oz">oz</option>
+          <option value="lb">lb</option>
+          <option value="ml">ml</option>
+          <option value="l">l</option>
+          <option value="tsp">tsp</option>
+          <option value="tbsp">tbsp</option>
+          <option value="cup">cup</option>
+          <option value="fl_oz">fl oz</option>
+        </select>
+      </div>
+    </div>
+    <div class="helper">Nutrition values below should match this serving amount exactly (e.g. per 100g, or per 1 cup).</div>
+
+    <div class="row-2">
+      <div>
+        <label for="caloriesInput">Calories *</label>
+        <input type="text" id="caloriesInput" placeholder="0">
+      </div>
+      <div>
+        <label for="proteinInput">Protein (g) *</label>
+        <input type="text" id="proteinInput" placeholder="0">
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div>
+        <label for="fatInput">Fat (g) *</label>
+        <input type="text" id="fatInput" placeholder="0">
+      </div>
+      <div>
+        <label for="carbsInput">Carbs (g) *</label>
+        <input type="text" id="carbsInput" placeholder="0">
+      </div>
+    </div>
+
+    <label for="fiberInput">Fiber (g)</label>
+    <input type="text" id="fiberInput" placeholder="0">
+
+    <label for="notesInput">Notes (optional)</label>
+    <textarea id="notesInput" rows="2"></textarea>
+
+    <button onclick="saveFood()">Save Food</button>
+    <div class="result-box" id="resultBox"></div>
+
+  </div>
+
+</main>
+
+<script src="./app.js"></script>
+<script>
+
+window.addEventListener("load", function() {
+  if (!isConfigured()) {
+    window.location.href = "./index.html";
+    return;
+  }
+  registerServiceWorker();
+});
+
+function saveFood() {
+
+  const name = document.getElementById("nameInput").value.trim();
+  const servingSize = parseFloat(document.getElementById("servingSizeInput").value);
+  const calories = parseFloat(document.getElementById("caloriesInput").value);
+  const protein = parseFloat(document.getElementById("proteinInput").value);
+  const fat = parseFloat(document.getElementById("fatInput").value);
+  const carbs = parseFloat(document.getElementById("carbsInput").value);
+
+  if (!name) { showResult(false, "Food name is required."); return; }
+  if (!servingSize || isNaN(servingSize) || servingSize <= 0) { showResult(false, "Enter a valid serving size."); return; }
+  if (isNaN(calories) || isNaN(protein) || isNaN(fat) || isNaN(carbs)) {
+    showResult(false, "Calories, Protein, Fat, and Carbs must all be numbers.");
+    return;
+  }
+
+  const fields = {
+    name: name,
+    brand: document.getElementById("brandInput").value.trim(),
+    servingSize: servingSize,
+    servingUnit: document.getElementById("servingUnitSelect").value,
+    calories: calories,
+    protein: protein,
+    fat: fat,
+    carbs: carbs,
+    fiber: parseFloat(document.getElementById("fiberInput").value) || 0,
+    notes: document.getElementById("notesInput").value.trim()
+  };
+
+  showResult(true, "Saving...");
+
+  apiPost("addManualFood", { fields: fields }).then(function(json) {
+
+    if (!json.success) {
+      showResult(false, json.error);
+      return;
+    }
+
+    showResult(true, "Saved \"" + json.data.name + "\" to your Foods list.");
+
+    // Reset for adding another
+    document.getElementById("nameInput").value = "";
+    document.getElementById("brandInput").value = "";
+    document.getElementById("servingSizeInput").value = "";
+    document.getElementById("caloriesInput").value = "";
+    document.getElementById("proteinInput").value = "";
+    document.getElementById("fatInput").value = "";
+    document.getElementById("carbsInput").value = "";
+    document.getElementById("fiberInput").value = "";
+    document.getElementById("notesInput").value = "";
+
+  }).catch(function(err) {
+    showResult(false, "Could not reach the backend: " + err.message);
+  });
+
+}
+
+function showResult(ok, message) {
+  const box = document.getElementById("resultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+</script>
+
+</body>
+</html>
