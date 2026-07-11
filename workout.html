@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Log Workout</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+<style>
+
+  .exercise-card {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  .exercise-card h3 {
+    font-family: 'Manrope', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    margin: 0 0 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .exercise-card .remove-ex {
+    width: auto;
+    padding: 2px 8px;
+    font-size: 16px;
+    background: transparent;
+    border: none;
+    color: var(--error);
+  }
+
+  .last-time-box {
+    background: var(--surface);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+
+  .last-time-box .lt-title {
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+
+  .set-input-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .set-input-row input {
+    margin-bottom: 0;
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  .set-input-row .set-num { width: 40px; text-align: center; }
+  .set-input-row .set-weight { width: 60px; }
+  .set-input-row .set-unit { width: 55px; }
+  .set-input-row .set-reps { width: 50px; }
+  .set-input-row .set-notes { flex: 1; }
+
+  .set-input-row button {
+    width: auto;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .logged-set-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .logged-set-row:last-child { border-bottom: none; }
+
+  .logged-set-row .remove-set {
+    width: auto;
+    padding: 0 6px;
+    background: transparent;
+    border: none;
+    color: var(--error);
+    font-size: 15px;
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Workouts</div>
+    <h1>Log Workout</h1>
+  </div>
+  <a class="back" href="./workout-history.html">History &rarr;</a>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Session details</h2>
+    <div class="row-2">
+      <div>
+        <label for="dateInput">Date</label>
+        <input type="date" id="dateInput">
+      </div>
+      <div>
+        <label for="workoutNameInput">Workout Name</label>
+        <input type="text" id="workoutNameInput" placeholder="e.g. Push Day">
+      </div>
+    </div>
+
+    <label for="templateSelect">Start from a template (optional)</label>
+    <select id="templateSelect" onchange="onTemplateSelected()">
+      <option value="">— None, build freely —</option>
+    </select>
+  </div>
+
+  <div class="card">
+    <h2>Add an exercise</h2>
+    <label for="exerciseSearch">Search</label>
+    <input type="text" id="exerciseSearch" placeholder="Start typing an exercise..." oninput="onExerciseSearch()">
+    <div class="result-list" id="exerciseResults" style="display:none;"></div>
+    <button class="secondary" style="margin-top:10px;" onclick="toggleAddExerciseForm()">+ Add a new exercise</button>
+
+    <div id="addExerciseForm" style="display:none; margin-top:12px;">
+      <label for="newExerciseName">Exercise Name</label>
+      <input type="text" id="newExerciseName" placeholder="e.g. Incline Dumbbell Press">
+      <label for="newExerciseCategory">Category (optional)</label>
+      <input type="text" id="newExerciseCategory" placeholder="e.g. Push, Pull, Legs">
+      <button onclick="createExercise()">Save & Add to Session</button>
+    </div>
+  </div>
+
+  <div id="exerciseList"></div>
+
+  <div class="card" id="saveCard" style="display:none;">
+    <button onclick="saveWorkout()">Save Workout</button>
+    <div class="result-box" id="saveResultBox"></div>
+  </div>
+
+</main>
+
+<script src="./app.js"></script>
+<script>
+
+let localExerciseNames = [];
+let sessionExercises = []; // { name, history: {sessions:[]}, sets: [{setNumber, weight, unit, reps, notes}] }
+
+window.addEventListener("load", function() {
+
+  if (!isConfigured()) {
+    window.location.href = "./index.html";
+    return;
+  }
+
+  document.getElementById("dateInput").valueAsDate = new Date();
+  registerServiceWorker();
+
+  apiGet("getExerciseNames").then(function(json) {
+    if (json.success) localExerciseNames = json.data;
+  });
+
+  apiGet("getWorkoutTemplateNames").then(function(json) {
+    if (json.success) {
+      const select = document.getElementById("templateSelect");
+      json.data.forEach(function(name) {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+    }
+  });
+
+});
+
+function onTemplateSelected() {
+
+  const templateName = document.getElementById("templateSelect").value;
+  if (!templateName) return;
+
+  document.getElementById("workoutNameInput").value = templateName;
+
+  apiGet("getWorkoutTemplate", { name: templateName }).then(function(json) {
+
+    if (!json.success) {
+      alert("Could not load template: " + json.error);
+      return;
+    }
+
+    json.data.exercises.forEach(function(ex) {
+      addExerciseToSession(ex.exercise);
+    });
+
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+
+}
+
+function onExerciseSearch() {
+
+  const query = document.getElementById("exerciseSearch").value.trim().toLowerCase();
+  const container = document.getElementById("exerciseResults");
+
+  if (query.length === 0) {
+    container.style.display = "none";
+    return;
+  }
+
+  const matches = localExerciseNames
+    .filter(function(name) { return name.toLowerCase().indexOf(query) !== -1; })
+    .slice(0, 8);
+
+  container.style.display = "block";
+
+  if (matches.length === 0) {
+    container.innerHTML = "<div class='empty-state'>No matches. Try adding it as a new exercise below.</div>";
+    return;
+  }
+
+  container.innerHTML = matches.map(function(name) {
+    return "<div class='result-item' onclick='addExerciseToSession(" + JSON.stringify(name) + ")'>" +
+      "<div class='item-name'>" + escapeHtml(name) + "</div>" +
+    "</div>";
+  }).join("");
+
+}
+
+function toggleAddExerciseForm() {
+  const form = document.getElementById("addExerciseForm");
+  form.style.display = form.style.display === "none" ? "block" : "none";
+}
+
+function createExercise() {
+
+  const name = document.getElementById("newExerciseName").value.trim();
+  const category = document.getElementById("newExerciseCategory").value.trim();
+
+  if (!name) { alert("Exercise name is required."); return; }
+
+  apiPost("addExercise", { name: name, category: category }).then(function(json) {
+
+    if (!json.success) {
+      alert("Could not add exercise: " + json.error);
+      return;
+    }
+
+    localExerciseNames.push(json.data.name);
+    document.getElementById("newExerciseName").value = "";
+    document.getElementById("newExerciseCategory").value = "";
+    document.getElementById("addExerciseForm").style.display = "none";
+    document.getElementById("exerciseSearch").value = "";
+    document.getElementById("exerciseResults").style.display = "none";
+
+    addExerciseToSession(json.data.name);
+
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+
+}
+
+function addExerciseToSession(name) {
+
+  if (sessionExercises.some(function(ex) { return ex.name === name; })) {
+    document.getElementById("exerciseSearch").value = "";
+    document.getElementById("exerciseResults").style.display = "none";
+    return; // already added
+  }
+
+  const entry = { name: name, history: null, sets: [] };
+  sessionExercises.push(entry);
+
+  document.getElementById("exerciseSearch").value = "";
+  document.getElementById("exerciseResults").style.display = "none";
+
+  renderExerciseList();
+
+  apiGet("getExerciseHistory", { exercise: name, sessionLimit: 1 }).then(function(json) {
+    if (json.success) {
+      entry.history = json.data;
+      renderExerciseList();
+    }
+  });
+
+}
+
+function removeExerciseFromSession(index) {
+  sessionExercises.splice(index, 1);
+  renderExerciseList();
+}
+
+function addSet(exIndex) {
+
+  const weightInput = document.getElementById("weight_" + exIndex);
+  const unitInput = document.getElementById("unit_" + exIndex);
+  const repsInput = document.getElementById("reps_" + exIndex);
+  const notesInput = document.getElementById("notes_" + exIndex);
+
+  const weight = parseFloat(weightInput.value);
+  const reps = parseInt(repsInput.value, 10);
+
+  if (isNaN(weight) && weightInput.value.trim() !== "0") {
+    // allow 0 explicitly (e.g. bodyweight-only), but require a value
+    if (weightInput.value.trim() === "") { alert("Enter a weight (0 is fine for bodyweight)."); return; }
+  }
+
+  if (!reps || isNaN(reps) || reps <= 0) { alert("Enter a valid rep count."); return; }
+
+  const ex = sessionExercises[exIndex];
+  const nextSetNumber = ex.sets.length + 1;
+
+  ex.sets.push({
+    setNumber: nextSetNumber,
+    weight: isNaN(weight) ? 0 : weight,
+    unit: unitInput.value.trim() || "lb",
+    reps: reps,
+    notes: notesInput.value.trim()
+  });
+
+  weightInput.value = "";
+  repsInput.value = "";
+  notesInput.value = "";
+
+  renderExerciseList();
+
+}
+
+function removeSet(exIndex, setIndex) {
+  sessionExercises[exIndex].sets.splice(setIndex, 1);
+  // renumber remaining sets
+  sessionExercises[exIndex].sets.forEach(function(s, i) { s.setNumber = i + 1; });
+  renderExerciseList();
+}
+
+function renderExerciseList() {
+
+  const container = document.getElementById("exerciseList");
+  const saveCard = document.getElementById("saveCard");
+
+  if (sessionExercises.length === 0) {
+    container.innerHTML = "";
+    saveCard.style.display = "none";
+    return;
+  }
+
+  saveCard.style.display = "block";
+
+  container.innerHTML = sessionExercises.map(function(ex, i) {
+
+    let lastTimeHtml = "<div class='last-time-box'>Loading last time...</div>";
+
+    if (ex.history) {
+      if (ex.history.sessions.length === 0) {
+        lastTimeHtml = "<div class='last-time-box'>No previous history for this exercise yet.</div>";
+      } else {
+        const session = ex.history.sessions[0];
+        const setsText = session.sets.map(function(s) {
+          return "Set " + s.setNumber + ": " + s.weight + s.unit + " &times; " + s.reps + (s.notes ? " (" + escapeHtml(s.notes) + ")" : "");
+        }).join("<br>");
+        lastTimeHtml = "<div class='last-time-box'><div class='lt-title'>Last time (" + session.date + ")</div>" + setsText + "</div>";
+      }
+    }
+
+    const loggedSetsHtml = ex.sets.map(function(s, si) {
+      return "<div class='logged-set-row'>" +
+        "<span>Set " + s.setNumber + ": " + s.weight + s.unit + " &times; " + s.reps + (s.notes ? " — " + escapeHtml(s.notes) : "") + "</span>" +
+        "<button class='remove-set' onclick='removeSet(" + i + ", " + si + ")'>&times;</button>" +
+      "</div>";
+    }).join("");
+
+    return "<div class='card exercise-card'>" +
+      "<h3>" + escapeHtml(ex.name) + "<button class='remove-ex' onclick='removeExerciseFromSession(" + i + ")'>&times;</button></h3>" +
+      lastTimeHtml +
+      loggedSetsHtml +
+      "<div class='set-input-row'>" +
+        "<input class='set-weight' type='text' id='weight_" + i + "' placeholder='wt'>" +
+        "<input class='set-unit' type='text' id='unit_" + i + "' placeholder='lb' value='lb'>" +
+        "<input class='set-reps' type='text' id='reps_" + i + "' placeholder='reps'>" +
+        "<input class='set-notes' type='text' id='notes_" + i + "' placeholder='notes (optional)'>" +
+        "<button onclick='addSet(" + i + ")'>+ Set</button>" +
+      "</div>" +
+    "</div>";
+
+  }).join("");
+
+}
+
+function saveWorkout() {
+
+  const date = document.getElementById("dateInput").value;
+  const workoutName = document.getElementById("workoutNameInput").value.trim();
+
+  const sets = [];
+
+  sessionExercises.forEach(function(ex) {
+    ex.sets.forEach(function(s) {
+      sets.push({
+        date: date,
+        workoutName: workoutName,
+        exercise: ex.name,
+        setNumber: s.setNumber,
+        weight: s.weight,
+        unit: s.unit,
+        reps: s.reps,
+        notes: s.notes
+      });
+    });
+  });
+
+  if (sets.length === 0) {
+    showSaveResult(false, "Add at least one set before saving.");
+    return;
+  }
+
+  showSaveResult(true, "Saving " + sets.length + " set(s)...");
+
+  apiPost("batchLogWorkoutSets", { sets: sets }).then(function(json) {
+
+    if (!json.success) {
+      showSaveResult(false, json.error);
+      return;
+    }
+
+    const failures = json.data.filter(function(r) { return !r.success; });
+
+    if (failures.length === 0) {
+      showSaveResult(true, "Workout saved — " + sets.length + " set(s) logged.");
+      sessionExercises = [];
+      renderExerciseList();
+    } else {
+      showSaveResult(false, failures.length + " set(s) failed to save. Check the console for details.");
+      console.log(failures);
+    }
+
+  }).catch(function(err) {
+    showSaveResult(false, "Could not reach the backend: " + err.message);
+  });
+
+}
+
+function showSaveResult(ok, message) {
+  const box = document.getElementById("saveResultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>

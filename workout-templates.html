@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Build Workout Template</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+<style>
+
+  .ingredient-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+
+  .ingredient-row:last-child { border-bottom: none; }
+
+  .ingredient-name {
+    flex-basis: 100%;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .ingredient-row input {
+    margin-bottom: 0;
+    width: 68px;
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  .ingredient-row label.mini {
+    font-size: 10px;
+    color: var(--ink-soft);
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .remove-btn {
+    width: auto;
+    padding: 6px 10px;
+    font-size: 16px;
+    background: transparent;
+    border: none;
+    color: var(--error);
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Workouts</div>
+    <h1>Build a Template</h1>
+  </div>
+  <a class="back" href="./index.html">&larr; Home</a>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Template name</h2>
+    <input type="text" id="templateNameInput" placeholder="e.g. Push Day">
+    <div class="helper">Using an existing template's exact name adds these exercises to it instead of starting a new one.</div>
+  </div>
+
+  <div class="card">
+    <h2>Add an exercise</h2>
+    <label for="exerciseSearch">Search</label>
+    <input type="text" id="exerciseSearch" placeholder="Start typing an exercise..." oninput="onExerciseSearch()">
+    <div class="result-list" id="exerciseResults" style="display:none;"></div>
+  </div>
+
+  <div class="card" id="listCard" style="display:none;">
+    <h2>Exercises (<span id="exerciseCount">0</span>)</h2>
+    <div id="exerciseList"></div>
+  </div>
+
+  <div class="card">
+    <button onclick="saveTemplate()">Save Template</button>
+    <div class="result-box" id="resultBox"></div>
+  </div>
+
+</main>
+
+<script src="./app.js"></script>
+<script>
+
+let localExerciseNames = [];
+let exercises = []; // { name, targetSets, targetReps, targetWeight, notes }
+
+window.addEventListener("load", function() {
+
+  if (!isConfigured()) {
+    window.location.href = "./index.html";
+    return;
+  }
+
+  registerServiceWorker();
+
+  apiGet("getExerciseNames").then(function(json) {
+    if (json.success) localExerciseNames = json.data;
+  });
+
+});
+
+function onExerciseSearch() {
+
+  const query = document.getElementById("exerciseSearch").value.trim().toLowerCase();
+  const container = document.getElementById("exerciseResults");
+
+  if (query.length === 0) {
+    container.style.display = "none";
+    return;
+  }
+
+  const matches = localExerciseNames
+    .filter(function(name) { return name.toLowerCase().indexOf(query) !== -1; })
+    .slice(0, 8);
+
+  container.style.display = "block";
+
+  if (matches.length === 0) {
+    container.innerHTML = "<div class='empty-state'>No matches. Add exercises first from the Log Workout screen.</div>";
+    return;
+  }
+
+  container.innerHTML = matches.map(function(name) {
+    return "<div class='result-item' onclick='addExercise(" + JSON.stringify(name) + ")'>" +
+      "<div class='item-name'>" + escapeHtml(name) + "</div>" +
+    "</div>";
+  }).join("");
+
+}
+
+function addExercise(name) {
+
+  exercises.push({ name: name, targetSets: "3", targetReps: "10", targetWeight: "", notes: "" });
+
+  document.getElementById("exerciseSearch").value = "";
+  document.getElementById("exerciseResults").style.display = "none";
+
+  renderExercises();
+
+}
+
+function removeExercise(index) {
+  exercises.splice(index, 1);
+  renderExercises();
+}
+
+function updateField(index, field, value) {
+  exercises[index][field] = value;
+}
+
+function renderExercises() {
+
+  const card = document.getElementById("listCard");
+  const list = document.getElementById("exerciseList");
+
+  document.getElementById("exerciseCount").textContent = exercises.length;
+
+  if (exercises.length === 0) {
+    card.style.display = "none";
+    return;
+  }
+
+  card.style.display = "block";
+
+  list.innerHTML = exercises.map(function(ex, i) {
+    return "<div class='ingredient-row'>" +
+      "<span class='ingredient-name'>" + escapeHtml(ex.name) + "</span>" +
+      "<div><label class='mini'>Sets</label><input type='text' value='" + escapeHtml(ex.targetSets) + "' onchange='updateField(" + i + ", \"targetSets\", this.value)'></div>" +
+      "<div><label class='mini'>Reps</label><input type='text' value='" + escapeHtml(ex.targetReps) + "' onchange='updateField(" + i + ", \"targetReps\", this.value)'></div>" +
+      "<div><label class='mini'>Weight</label><input type='text' value='" + escapeHtml(ex.targetWeight) + "' onchange='updateField(" + i + ", \"targetWeight\", this.value)'></div>" +
+      "<button class='remove-btn' onclick='removeExercise(" + i + ")'>&times;</button>" +
+    "</div>";
+  }).join("");
+
+}
+
+function saveTemplate() {
+
+  const templateName = document.getElementById("templateNameInput").value.trim();
+
+  if (!templateName) { showResult(false, "Enter a template name."); return; }
+  if (exercises.length === 0) { showResult(false, "Add at least one exercise."); return; }
+
+  showResult(true, "Saving...");
+
+  apiPost("saveWorkoutTemplate", {
+    templateName: templateName,
+    exercises: exercises
+  }).then(function(json) {
+
+    if (!json.success) {
+      showResult(false, json.error);
+      return;
+    }
+
+    showResult(true, "Saved \"" + json.data.templateName + "\" with " + json.data.count + " exercise(s).");
+    exercises = [];
+    renderExercises();
+
+  }).catch(function(err) {
+    showResult(false, "Could not reach the backend: " + err.message);
+  });
+
+}
+
+function showResult(ok, message) {
+  const box = document.getElementById("resultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>
