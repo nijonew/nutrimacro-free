@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Log Food or Recipe</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Daily Log</div>
+    <h1>Log an Entry</h1>
+  </div>
+  <a class="back" href="./index.html">&larr; Home</a>
+</header>
+
+<main>
+
+  <!-- STEP 1: search -->
+  <div class="card" id="searchCard">
+    <h2>What are you logging?</h2>
+
+    <div class="segmented">
+      <button id="typeFoodBtn" class="active" onclick="setType('Food')">Food</button>
+      <button id="typeRecipeBtn" onclick="setType('Recipe')">Recipe</button>
+    </div>
+
+    <label for="searchInput">Search</label>
+    <input type="text" id="searchInput" placeholder="Start typing a name..." oninput="onSearchInput()">
+
+    <div id="localResultsWrap">
+      <div class="helper" style="margin-top:0;">Your foods</div>
+      <div class="result-list" id="localResults"></div>
+    </div>
+
+    <div id="usdaSection" style="display:none;">
+      <div class="helper">USDA database</div>
+      <div class="result-list" id="usdaResults"></div>
+    </div>
+
+    <button class="secondary" id="searchUsdaBtn" style="display:none;" onclick="searchUsda()">
+      Search USDA for &ldquo;<span id="usdaQueryLabel"></span>&rdquo;
+    </button>
+
+  </div>
+
+  <!-- STEP 2: log entry, hidden until an item is selected -->
+  <div class="card" id="logCard" style="display:none;">
+    <h2>Log it</h2>
+
+    <div class="selected-item">
+      <span id="selectedItemName"></span>
+      <button onclick="clearSelection()">Change</button>
+    </div>
+
+    <div class="row-2">
+      <div>
+        <label for="dateInput">Date</label>
+        <input type="date" id="dateInput">
+      </div>
+      <div>
+        <label for="mealInput">Meal</label>
+        <select id="mealInput">
+          <option>Breakfast</option>
+          <option>Lunch</option>
+          <option>Dinner</option>
+          <option>Snack</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div>
+        <label for="amountInput">Amount</label>
+        <input type="number" id="amountInput" step="any">
+      </div>
+      <div>
+        <label for="unitInput">Unit</label>
+        <input list="unitOptions" id="unitInput" placeholder="g, oz, cup...">
+        <datalist id="unitOptions">
+          <option value="g"><option value="kg"><option value="oz"><option value="lb">
+          <option value="ml"><option value="l"><option value="tsp"><option value="tbsp">
+          <option value="cup"><option value="fl_oz">
+        </datalist>
+      </div>
+    </div>
+
+    <label for="notesInput">Notes (optional)</label>
+    <textarea id="notesInput" rows="2"></textarea>
+
+    <button onclick="submitEntry()">Log It</button>
+
+    <div class="result-box" id="logResultBox"></div>
+
+  </div>
+
+</main>
+
+<script src="./app.js"></script>
+<script>
+
+let currentType = "Food";
+let localFoodNames = [];
+let localRecipeNames = [];
+let selectedItem = null; // { type, name }
+
+window.addEventListener("load", function() {
+
+  if (!isConfigured()) {
+    window.location.href = "./index.html";
+    return;
+  }
+
+  document.getElementById("dateInput").valueAsDate = new Date();
+
+  registerServiceWorker();
+  loadLocalNames();
+
+});
+
+function loadLocalNames() {
+
+  apiGet("getFoodNames").then(function(json) {
+    if (json.success) localFoodNames = json.data;
+  });
+
+  apiGet("getRecipeNames").then(function(json) {
+    if (json.success) localRecipeNames = json.data;
+  });
+
+}
+
+function setType(type) {
+
+  currentType = type;
+
+  document.getElementById("typeFoodBtn").className = (type === "Food") ? "active" : "";
+  document.getElementById("typeRecipeBtn").className = (type === "Recipe") ? "active" : "";
+
+  // USDA fallback only makes sense for Food, not Recipe
+  document.getElementById("searchUsdaBtn").style.display = "none";
+  document.getElementById("usdaSection").style.display = "none";
+
+  onSearchInput();
+
+}
+
+function onSearchInput() {
+
+  const query = document.getElementById("searchInput").value.trim().toLowerCase();
+  const source = (currentType === "Food") ? localFoodNames : localRecipeNames;
+
+  const matches = query.length === 0
+    ? []
+    : source.filter(function(name) { return name.toLowerCase().indexOf(query) !== -1; }).slice(0, 8);
+
+  renderLocalResults(matches, query);
+
+  // Only Food supports the USDA fallback
+  if (currentType === "Food" && query.length >= 2) {
+    document.getElementById("usdaQueryLabel").textContent = query;
+    document.getElementById("searchUsdaBtn").style.display = "block";
+  } else {
+    document.getElementById("searchUsdaBtn").style.display = "none";
+  }
+
+  // Reset any previous USDA results when the query changes
+  document.getElementById("usdaSection").style.display = "none";
+  document.getElementById("usdaResults").innerHTML = "";
+
+}
+
+function renderLocalResults(matches, query) {
+
+  const container = document.getElementById("localResults");
+
+  if (query.length === 0) {
+    container.innerHTML = "<div class='empty-state'>Start typing to search your saved " +
+      (currentType === "Food" ? "foods" : "recipes") + ".</div>";
+    return;
+  }
+
+  if (matches.length === 0) {
+    container.innerHTML = "<div class='empty-state'>No matches in your " +
+      (currentType === "Food" ? "Foods" : "Recipes") + " list yet.</div>";
+    return;
+  }
+
+  container.innerHTML = matches.map(function(name) {
+    return "<div class='result-item' onclick='selectLocalItem(" + JSON.stringify(name) + ")'>" +
+      "<div class='item-name'>" + escapeHtml(name) + "</div>" +
+      "</div>";
+  }).join("");
+
+}
+
+function selectLocalItem(name) {
+  selectedItem = { type: currentType, name: name };
+  showLogStep();
+}
+
+function searchUsda() {
+
+  const query = document.getElementById("searchInput").value.trim();
+  const usdaSection = document.getElementById("usdaSection");
+  const usdaResults = document.getElementById("usdaResults");
+
+  usdaSection.style.display = "block";
+  usdaResults.innerHTML = "<div class='empty-state'>Searching USDA...</div>";
+
+  apiGet("searchFoods", { query: query }).then(function(json) {
+
+    if (!json.success) {
+      usdaResults.innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
+      return;
+    }
+
+    if (json.data.length === 0) {
+      usdaResults.innerHTML = "<div class='empty-state'>No USDA results found.</div>";
+      return;
+    }
+
+    usdaResults.innerHTML = json.data.map(function(food) {
+      return "<div class='result-item' onclick='importAndSelect(" + food.fdcId + ")'>" +
+        "<div class='item-name'>" + escapeHtml(food.description) + "</div>" +
+        "<div class='item-meta'>" + escapeHtml(food.dataType) +
+        (food.brand ? " &middot; " + escapeHtml(food.brand) : "") + "</div>" +
+        "</div>";
+    }).join("");
+
+  }).catch(function(err) {
+    usdaResults.innerHTML = "<div class='empty-state'>Could not reach USDA: " + escapeHtml(err.message) + "</div>";
+  });
+
+}
+
+function importAndSelect(fdcId) {
+
+  const usdaResults = document.getElementById("usdaResults");
+  usdaResults.innerHTML = "<div class='empty-state'>Importing...</div>";
+
+  apiPost("importFood", { fdcId: fdcId }).then(function(json) {
+
+    if (!json.success) {
+      usdaResults.innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
+      return;
+    }
+
+    localFoodNames.push(json.data.description); // keep local cache in sync
+    selectedItem = { type: "Food", name: json.data.description };
+    showLogStep();
+
+  }).catch(function(err) {
+    usdaResults.innerHTML = "<div class='empty-state'>Import failed: " + escapeHtml(err.message) + "</div>";
+  });
+
+}
+
+function showLogStep() {
+
+  document.getElementById("searchCard").style.display = "none";
+  document.getElementById("logCard").style.display = "block";
+  document.getElementById("selectedItemName").textContent = selectedItem.name;
+  document.getElementById("logResultBox").className = "result-box";
+  document.getElementById("logResultBox").textContent = "";
+
+}
+
+function clearSelection() {
+
+  selectedItem = null;
+  document.getElementById("searchCard").style.display = "block";
+  document.getElementById("logCard").style.display = "none";
+  document.getElementById("searchInput").value = "";
+  onSearchInput();
+
+}
+
+function submitEntry() {
+
+  const date = document.getElementById("dateInput").value;
+  const meal = document.getElementById("mealInput").value;
+  const amount = parseFloat(document.getElementById("amountInput").value);
+  const unit = document.getElementById("unitInput").value.trim();
+  const notes = document.getElementById("notesInput").value.trim();
+
+  if (!amount || amount <= 0) {
+    showLogResult(false, "Enter a valid amount.");
+    return;
+  }
+
+  if (!unit) {
+    showLogResult(false, "Enter a unit.");
+    return;
+  }
+
+  showLogResult(true, "Logging...");
+
+  apiPost("logEntry", {
+    date: date,
+    meal: meal,
+    type: selectedItem.type,
+    name: selectedItem.name,
+    amount: amount,
+    unit: unit,
+    notes: notes
+  }).then(function(json) {
+
+    if (!json.success) {
+      showLogResult(false, json.error);
+      return;
+    }
+
+    const r = json.data;
+    showLogResult(true,
+      "Logged.\nCalories: " + r.calories +
+      "  |  Protein: " + r.protein + "g" +
+      "  |  Fat: " + r.fat + "g" +
+      "  |  Carbs: " + r.carbs + "g" +
+      "  |  Fiber: " + r.fiber + "g" +
+      "  |  Net Carbs: " + r.netCarbs + "g"
+    );
+
+    // Reset amount/unit/notes for fast repeat logging, keep date/meal/item
+    document.getElementById("amountInput").value = "";
+    document.getElementById("unitInput").value = "";
+    document.getElementById("notesInput").value = "";
+
+  }).catch(function(err) {
+    showLogResult(false, "Could not reach the backend: " + err.message);
+  });
+
+}
+
+function showLogResult(ok, message) {
+  const box = document.getElementById("logResultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>

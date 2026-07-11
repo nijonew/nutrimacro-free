@@ -3,10 +3,13 @@
 // It only lets the app's own shell (HTML/CSS/JS) load instantly and
 // work even with a flaky connection.
 
-const CACHE_NAME = "nutrition-app-shell-v1";
+const CACHE_NAME = "nutrition-app-shell-v2";
 const SHELL_FILES = [
   "./index.html",
-  "./manifest.json"
+  "./log.html",
+  "./manifest.json",
+  "./style.css",
+  "./app.js"
 ];
 
 self.addEventListener("install", function(event) {
