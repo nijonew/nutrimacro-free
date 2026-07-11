@@ -79,16 +79,25 @@
     <div class="row-2">
       <div>
         <label for="amountInput">Amount</label>
-        <input type="number" id="amountInput" step="any">
+        <input type="text" id="amountInput" placeholder="e.g. 6 or 1/4">
       </div>
       <div>
-        <label for="unitInput">Unit</label>
-        <input list="unitOptions" id="unitInput" placeholder="g, oz, cup...">
-        <datalist id="unitOptions">
-          <option value="g"><option value="kg"><option value="oz"><option value="lb">
-          <option value="ml"><option value="l"><option value="tsp"><option value="tbsp">
-          <option value="cup"><option value="fl_oz">
-        </datalist>
+        <label for="unitSelect">Unit</label>
+        <select id="unitSelect" onchange="onUnitSelectChange()">
+          <option value="">Choose...</option>
+          <option value="g">g (grams)</option>
+          <option value="kg">kg</option>
+          <option value="oz">oz</option>
+          <option value="lb">lb</option>
+          <option value="ml">ml</option>
+          <option value="l">l</option>
+          <option value="tsp">tsp</option>
+          <option value="tbsp">tbsp</option>
+          <option value="cup">cup</option>
+          <option value="fl_oz">fl oz</option>
+          <option value="__custom__">Other (type it in)</option>
+        </select>
+        <input type="text" id="unitCustomInput" placeholder="e.g. slice, egg" style="display:none;">
       </div>
     </div>
 
@@ -201,6 +210,66 @@ function renderLocalResults(matches, query) {
 
 }
 
+function onUnitSelectChange() {
+
+  const select = document.getElementById("unitSelect");
+  const customInput = document.getElementById("unitCustomInput");
+
+  if (select.value === "__custom__") {
+    customInput.style.display = "block";
+    customInput.focus();
+  } else {
+    customInput.style.display = "none";
+    customInput.value = "";
+  }
+
+}
+
+function getSelectedUnit() {
+
+  const select = document.getElementById("unitSelect");
+
+  if (select.value === "__custom__") {
+    return document.getElementById("unitCustomInput").value.trim();
+  }
+
+  return select.value;
+
+}
+
+/**
+ * Parses an amount string that may be a plain decimal ("6", "0.5"),
+ * a simple fraction ("1/4"), or a mixed number ("1 1/4"). Returns
+ * NaN if the string doesn't match any of those shapes.
+ */
+function parseAmount(str) {
+
+  str = str.trim();
+
+  // Mixed number: "1 1/4"
+  const mixedMatch = str.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixedMatch) {
+    const whole = parseInt(mixedMatch[1], 10);
+    const num = parseInt(mixedMatch[2], 10);
+    const denom = parseInt(mixedMatch[3], 10);
+    if (denom === 0) return NaN;
+    return whole + (num / denom);
+  }
+
+  // Simple fraction: "1/4"
+  const fractionMatch = str.match(/^(\d+)\/(\d+)$/);
+  if (fractionMatch) {
+    const num = parseInt(fractionMatch[1], 10);
+    const denom = parseInt(fractionMatch[2], 10);
+    if (denom === 0) return NaN;
+    return num / denom;
+  }
+
+  // Plain decimal
+  return parseFloat(str);
+
+}
+
 function selectLocalItem(name) {
   selectedItem = { type: currentType, name: name };
   showLogStep();
@@ -279,6 +348,9 @@ function clearSelection() {
   document.getElementById("searchCard").style.display = "block";
   document.getElementById("logCard").style.display = "none";
   document.getElementById("searchInput").value = "";
+  document.getElementById("unitSelect").value = "";
+  document.getElementById("unitCustomInput").style.display = "none";
+  document.getElementById("unitCustomInput").value = "";
   onSearchInput();
 
 }
@@ -287,17 +359,17 @@ function submitEntry() {
 
   const date = document.getElementById("dateInput").value;
   const meal = document.getElementById("mealInput").value;
-  const amount = parseFloat(document.getElementById("amountInput").value);
-  const unit = document.getElementById("unitInput").value.trim();
+  const amount = parseAmount(document.getElementById("amountInput").value);
+  const unit = getSelectedUnit();
   const notes = document.getElementById("notesInput").value.trim();
 
-  if (!amount || amount <= 0) {
-    showLogResult(false, "Enter a valid amount.");
+  if (!amount || isNaN(amount) || amount <= 0) {
+    showLogResult(false, "Enter a valid amount (e.g. 6, 0.5, or 1/4).");
     return;
   }
 
   if (!unit) {
-    showLogResult(false, "Enter a unit.");
+    showLogResult(false, "Choose or enter a unit.");
     return;
   }
 
@@ -330,7 +402,9 @@ function submitEntry() {
 
     // Reset amount/unit/notes for fast repeat logging, keep date/meal/item
     document.getElementById("amountInput").value = "";
-    document.getElementById("unitInput").value = "";
+    document.getElementById("unitSelect").value = "";
+    document.getElementById("unitCustomInput").style.display = "none";
+    document.getElementById("unitCustomInput").value = "";
     document.getElementById("notesInput").value = "";
 
   }).catch(function(err) {
