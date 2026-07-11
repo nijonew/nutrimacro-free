@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Today</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+<style>
+
+  .totals-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+
+  .total-tile {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 12px 10px;
+    text-align: center;
+  }
+
+  .total-tile .value {
+    font-family: 'Manrope', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+  }
+
+  .total-tile .label {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+
+  .total-tile.protein .value { color: var(--protein); }
+  .total-tile.carbs .value { color: var(--carbs); }
+  .total-tile.fat .value { color: var(--fat); }
+
+  .entry-row {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .entry-row:last-child { border-bottom: none; }
+
+  .entry-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 14px;
+  }
+
+  .entry-name { font-weight: 600; }
+  .entry-meal {
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+  }
+
+  .entry-meta {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 3px;
+  }
+
+  .entry-meta .protein { color: var(--protein); }
+  .entry-meta .carbs { color: var(--carbs); }
+  .entry-meta .fat { color: var(--fat); }
+
+  .date-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .date-nav button {
+    width: auto;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    color: var(--ink);
+  }
+
+  .date-nav input {
+    margin-bottom: 0;
+    text-align: center;
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Overview</div>
+    <h1>Today</h1>
+  </div>
+  <a class="back" href="./log.html">Log &rarr;</a>
+</header>
+
+<main>
+
+  <div class="card">
+    <div class="date-nav">
+      <button onclick="shiftDate(-1)">&larr;</button>
+      <input type="date" id="dateInput" onchange="onDateChange()">
+      <button onclick="shiftDate(1)">&rarr;</button>
+    </div>
+
+    <div class="totals-grid">
+      <div class="total-tile">
+        <div class="value" id="totalCalories">–</div>
+        <div class="label">Calories</div>
+      </div>
+      <div class="total-tile protein">
+        <div class="value" id="totalProtein">–</div>
+        <div class="label">Protein (g)</div>
+      </div>
+      <div class="total-tile carbs">
+        <div class="value" id="totalCarbs">–</div>
+        <div class="label">Carbs (g)</div>
+      </div>
+      <div class="total-tile fat">
+        <div class="value" id="totalFat">–</div>
+        <div class="label">Fat (g)</div>
+      </div>
+      <div class="total-tile">
+        <div class="value" id="totalFiber">–</div>
+        <div class="label">Fiber (g)</div>
+      </div>
+      <div class="total-tile">
+        <div class="value" id="totalNetCarbs">–</div>
+        <div class="label">Net Carbs (g)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Entries</h2>
+    <div id="entriesList">
+      <div class="empty-state">Loading...</div>
+    </div>
+  </div>
+
+</main>
+
+<script src="./app.js"></script>
+<script>
+
+window.addEventListener("load", function() {
+
+  if (!isConfigured()) {
+    window.location.href = "./index.html";
+    return;
+  }
+
+  document.getElementById("dateInput").valueAsDate = new Date();
+  registerServiceWorker();
+  loadDay();
+
+});
+
+function onDateChange() {
+  loadDay();
+}
+
+function shiftDate(days) {
+  const input = document.getElementById("dateInput");
+  const current = new Date(input.value + "T00:00:00");
+  current.setDate(current.getDate() + days);
+  input.valueAsDate = current;
+  loadDay();
+}
+
+function loadDay() {
+
+  const date = document.getElementById("dateInput").value;
+
+  document.getElementById("entriesList").innerHTML = "<div class='empty-state'>Loading...</div>";
+  setTotals({ calories: "–", protein: "–", fat: "–", carbs: "–", fiber: "–", netCarbs: "–" });
+
+  apiGet("getDailyLogEntries", { date: date }).then(function(json) {
+
+    if (!json.success) {
+      document.getElementById("entriesList").innerHTML =
+        "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
+      return;
+    }
+
+    setTotals(json.data.totals);
+    renderEntries(json.data.entries);
+
+  }).catch(function(err) {
+    document.getElementById("entriesList").innerHTML =
+      "<div class='empty-state'>Could not reach the backend: " + escapeHtml(err.message) + "</div>";
+  });
+
+}
+
+function setTotals(totals) {
+  document.getElementById("totalCalories").textContent = totals.calories;
+  document.getElementById("totalProtein").textContent = totals.protein;
+  document.getElementById("totalCarbs").textContent = totals.carbs;
+  document.getElementById("totalFat").textContent = totals.fat;
+  document.getElementById("totalFiber").textContent = totals.fiber;
+  document.getElementById("totalNetCarbs").textContent = totals.netCarbs;
+}
+
+function renderEntries(entries) {
+
+  const container = document.getElementById("entriesList");
+
+  if (entries.length === 0) {
+    container.innerHTML = "<div class='empty-state'>Nothing logged for this day yet.</div>";
+    return;
+  }
+
+  container.innerHTML = entries.map(function(e) {
+    return "<div class='entry-row'>" +
+      "<div class='entry-top'>" +
+        "<span class='entry-name'>" + escapeHtml(e.name) + "</span>" +
+        "<span class='entry-meal'>" + escapeHtml(e.meal) + "</span>" +
+      "</div>" +
+      "<div class='entry-meta'>" +
+        e.amount + " " + escapeHtml(e.unit) + " &middot; " +
+        e.calories + " cal &middot; " +
+        "<span class='protein'>" + e.protein + "g P</span> &middot; " +
+        "<span class='carbs'>" + e.carbs + "g C</span> &middot; " +
+        "<span class='fat'>" + e.fat + "g F</span>" +
+      "</div>" +
+      (e.notes ? "<div class='entry-meta'>" + escapeHtml(e.notes) + "</div>" : "") +
+    "</div>";
+  }).join("");
+
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>
