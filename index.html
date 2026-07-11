@@ -260,9 +260,30 @@ function loadConfig() {
   };
 }
 
-// Pre-fill fields if already saved from a previous visit
+// Pre-fill fields if already saved from a previous visit, or auto-configure
+// from URL query params if present (?apiUrl=...&apiToken=...) — this lets
+// setup happen via a single tapped link instead of manually typing a long
+// token on a phone keyboard, where typos are easy to introduce.
 window.addEventListener("load", function() {
-  const config = loadConfig();
+
+  const params = new URLSearchParams(window.location.search);
+  const paramUrl = params.get("apiUrl");
+  const paramToken = params.get("apiToken");
+
+  let config;
+
+  if (paramUrl && paramToken) {
+    saveConfig(paramUrl, paramToken);
+    config = { url: paramUrl, token: paramToken };
+
+    // Clean the sensitive params out of the visible address bar after saving,
+    // without reloading the page.
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+  } else {
+    config = loadConfig();
+  }
+
   document.getElementById("apiUrl").value = config.url;
   document.getElementById("apiToken").value = config.token;
 
