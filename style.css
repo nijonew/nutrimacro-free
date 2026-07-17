@@ -273,3 +273,95 @@ input:focus, select:focus, textarea:focus {
   margin-top: 8px;
   font-size: 13px;
 }
+
+/* ============================================================
+   Global navigation menu (hamburger)
+   ============================================================ */
+
+.header-left-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-toggle-btn {
+  width: auto;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  color: var(--ink);
+  padding: 4px 8px 4px 0;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.nav-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(28,37,48,0.45);
+  z-index: 1000;
+  display: none;
+}
+
+.nav-overlay.open {
+  display: block;
+}
+
+.nav-panel {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 78%;
+  max-width: 320px;
+  background: var(--surface);
+  box-shadow: 2px 0 16px rgba(0,0,0,0.15);
+  padding: 20px 16px;
+  overflow-y: auto;
+}
+
+.nav-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.nav-panel-header span {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.nav-close-btn {
+  width: auto;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  color: var(--ink-soft);
+  padding: 0 6px;
+  cursor: pointer;
+}
+
+.nav-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin: 16px 0 6px;
+}
+
+.nav-section-label:first-of-type { margin-top: 0; }
+
+.nav-link {
+  display: block;
+  padding: 10px 8px;
+  border-radius: 8px;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.nav-link:active, .nav-link.active {
+  background: var(--bg);
+}
