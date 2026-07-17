@@ -56,6 +56,28 @@
     padding: 4px;
   }
 
+  .token-display {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: monospace;
+    font-size: 13px;
+    word-break: break-all;
+    margin: 10px 0;
+  }
+
+  .link-toggle {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    text-decoration: underline;
+    font-size: 13px;
+    padding: 0;
+    width: auto;
+    font-weight: 600;
+    margin-top: 8px;
+  }
+
 </style>
 </head>
 <body>
@@ -65,23 +87,45 @@
     <div class="eyebrow" id="dateLabel">Today</div>
     <h1>Nutrition Tracker</h1>
   </div>
-  <a class="gear" href="./settings.html" title="Settings">&#9881;</a>
+  <a class="gear" href="./settings.html" id="gearLink" style="display:none;" title="Account">&#9881;</a>
 </header>
 
 <main>
 
-  <div class="card" id="notConfiguredCard" style="display:none;">
-    <h2>Get started</h2>
-    <div class="helper">Connect to your backend to begin.</div>
-    <a href="./settings.html" style="text-decoration:none;">
-      <button>Go to Settings</button>
-    </a>
+  <!-- WELCOME / SIGN UP (shown when no account token is stored on this device) -->
+  <div class="card" id="welcomeCard" style="display:none;">
+    <h2>Welcome</h2>
+    <div class="helper" style="margin-top:0;">Create your account to start tracking. Your data stays private to you.</div>
+
+    <label for="signupName">Your Name</label>
+    <input type="text" id="signupName" placeholder="e.g. Jamie">
+    <button onclick="createAccount()">Create My Account</button>
+    <div class="result-box" id="signupResultBox"></div>
+
+    <button class="link-toggle" onclick="toggleExistingToken()">Already have an account? Sign in with your token</button>
+
+    <div id="existingTokenForm" style="display:none; margin-top:12px;">
+      <label for="existingToken">Your Token</label>
+      <input type="text" id="existingToken" placeholder="Paste your token">
+      <button class="secondary" onclick="signInWithToken()">Sign In</button>
+    </div>
   </div>
 
+  <!-- ACCOUNT CREATED CONFIRMATION -->
+  <div class="card" id="tokenConfirmCard" style="display:none;">
+    <h2>Account created!</h2>
+    <div class="helper" style="margin-top:0;">Save this token somewhere safe — you'll need it to sign in on another device. It won't be shown again automatically (you can always find it in Settings).</div>
+    <div class="token-display" id="newTokenDisplay"></div>
+    <button onclick="copyNewToken()">Copy Token</button>
+    <div style="height:10px;"></div>
+    <button class="secondary" onclick="continueToDashboard()">Continue to Dashboard</button>
+  </div>
+
+  <!-- DASHBOARD (shown once signed in) -->
   <div id="mainContent" style="display:none;">
 
     <div class="card">
-      <h2>Today so far</h2>
+      <h2 id="greeting">Today so far</h2>
       <div class="totals-grid">
         <div class="total-tile">
           <div class="value" id="totalCalories">–</div>
@@ -140,19 +184,110 @@
 <script src="./app.js"></script>
 <script>
 
+let pendingNewToken = "";
+
 window.addEventListener("load", function() {
 
   registerServiceWorker();
 
+  // Backward-compatible support for the old ?apiToken= link trick,
+  // in case you still have one saved somewhere.
+  const params = new URLSearchParams(window.location.search);
+  const paramToken = params.get("apiToken");
+  if (paramToken) {
+    saveToken(paramToken);
+    window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+  }
+
   if (!isConfigured()) {
-    document.getElementById("notConfiguredCard").style.display = "block";
+    document.getElementById("welcomeCard").style.display = "block";
     return;
   }
 
-  document.getElementById("mainContent").style.display = "block";
-  loadToday();
+  showDashboard();
 
 });
+
+function toggleExistingToken() {
+  const form = document.getElementById("existingTokenForm");
+  form.style.display = form.style.display === "none" ? "block" : "none";
+}
+
+function signInWithToken() {
+  const token = document.getElementById("existingToken").value.trim();
+  if (!token) return;
+  saveToken(token);
+  document.getElementById("welcomeCard").style.display = "none";
+  showDashboard();
+}
+
+function createAccount() {
+
+  const name = document.getElementById("signupName").value.trim();
+  const box = document.getElementById("signupResultBox");
+
+  if (!name) {
+    box.className = "result-box error";
+    box.textContent = "Enter your name first.";
+    return;
+  }
+
+  box.className = "result-box ok";
+  box.textContent = "Creating account...";
+
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ action: "createAccount", name: name })
+  }).then(function(response) { return response.json(); })
+    .then(function(json) {
+
+      if (!json.success) {
+        box.className = "result-box error";
+        box.textContent = json.error;
+        return;
+      }
+
+      saveToken(json.data.token);
+      pendingNewToken = json.data.token;
+
+      document.getElementById("welcomeCard").style.display = "none";
+      document.getElementById("newTokenDisplay").textContent = json.data.token;
+      document.getElementById("tokenConfirmCard").style.display = "block";
+
+    }).catch(function(err) {
+      box.className = "result-box error";
+      box.textContent = "Could not reach the backend: " + err.message;
+    });
+
+}
+
+function copyNewToken() {
+  navigator.clipboard.writeText(pendingNewToken).then(function() {
+    alert("Token copied.");
+  }).catch(function() {
+    alert("Could not copy automatically — please select and copy the token manually.");
+  });
+}
+
+function continueToDashboard() {
+  document.getElementById("tokenConfirmCard").style.display = "none";
+  showDashboard();
+}
+
+function showDashboard() {
+
+  document.getElementById("gearLink").style.display = "inline";
+  document.getElementById("mainContent").style.display = "block";
+
+  apiGet("ping").then(function(json) {
+    if (json.success && json.data.user) {
+      document.getElementById("greeting").textContent = "Hi " + json.data.user + " — today so far";
+    }
+  }).catch(function() {});
+
+  loadToday();
+
+}
 
 function loadToday() {
 

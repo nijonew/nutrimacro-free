@@ -3,19 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Settings</title>
+<title>Account</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#1C2530">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./style.css">
+<style>
+
+  .token-display {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: monospace;
+    font-size: 13px;
+    word-break: break-all;
+    margin: 10px 0;
+  }
+
+</style>
 </head>
 <body>
 
 <header>
   <div class="titles">
-    <div class="eyebrow">Setup</div>
+    <div class="eyebrow">Account</div>
     <h1>Settings</h1>
   </div>
   <a class="back" href="./index.html">&larr; Home</a>
@@ -23,19 +36,43 @@
 
 <main>
 
-  <div class="card">
-    <h2>Connect to your backend</h2>
-    <label for="apiUrl">Apps Script Web App URL</label>
-    <input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/.../exec">
-    <label for="apiToken">API Token</label>
-    <input type="password" id="apiToken" placeholder="your token">
-    <div class="helper">Saved on this device only — never sent anywhere except your own backend.</div>
-    <button onclick="saveConfigAndTest()">Save & Test Connection</button>
-    <div class="status-row" id="statusRow" style="margin-top:14px;">
-      <div class="dot" id="statusDot"></div>
-      <span id="statusText">Not connected yet</span>
+  <div class="card" id="notSignedInCard" style="display:none;">
+    <h2>Not signed in</h2>
+    <div class="helper">Go to the home screen to create an account or sign in.</div>
+    <a href="./index.html" style="text-decoration:none;"><button>Go to Home</button></a>
+  </div>
+
+  <div id="signedInContent" style="display:none;">
+
+    <div class="card">
+      <h2>Signed in as</h2>
+      <div class="status-row" style="margin-bottom:6px;">
+        <div class="dot" id="statusDot"></div>
+        <span id="statusText">Checking...</span>
+      </div>
     </div>
-    <div class="result-box" id="resultBox"></div>
+
+    <div class="card">
+      <h2>Your account token</h2>
+      <div class="helper" style="margin-top:0;">Use this to sign in on another device. Keep it private — anyone with this token can see and edit your data.</div>
+      <div class="token-display" id="tokenDisplay"></div>
+      <button onclick="copyToken()">Copy Token</button>
+    </div>
+
+    <div class="card">
+      <h2>Housekeeping</h2>
+      <button class="secondary" onclick="recalculateRecipes()">Recalculate My Recipes</button>
+      <div style="height:10px;"></div>
+      <button class="secondary" onclick="refreshAchievements()">Refresh My Achievements</button>
+      <div class="result-box" id="actionResultBox"></div>
+    </div>
+
+    <div class="card">
+      <h2>Sign out</h2>
+      <div class="helper" style="margin-top:0;">Removes your token from this device only. Your data stays safe — sign back in anytime with your token.</div>
+      <button class="secondary" onclick="signOut()">Sign Out</button>
+    </div>
+
   </div>
 
   <div class="card">
@@ -55,74 +92,77 @@
 
 window.addEventListener("load", function() {
 
-  const params = new URLSearchParams(window.location.search);
-  const paramUrl = params.get("apiUrl");
-  const paramToken = params.get("apiToken");
-
-  let config;
-
-  if (paramUrl && paramToken) {
-    saveConfig(paramUrl, paramToken);
-    config = { url: paramUrl, token: paramToken };
-    const cleanUrl = window.location.origin + window.location.pathname;
-    window.history.replaceState({}, document.title, cleanUrl);
-  } else {
-    config = loadConfig();
-  }
-
-  document.getElementById("apiUrl").value = config.url;
-  document.getElementById("apiToken").value = config.token;
-
-  if (config.url && config.token) {
-    testConnection();
-  }
-
   registerServiceWorker();
 
-});
-
-function saveConfigAndTest() {
-  const url = document.getElementById("apiUrl").value;
-  const token = document.getElementById("apiToken").value;
-
-  if (!url || !token) {
-    setStatus(false, "Enter both the URL and token first.");
+  if (!isConfigured()) {
+    document.getElementById("notSignedInCard").style.display = "block";
     return;
   }
 
-  saveConfig(url, token);
-  testConnection();
+  document.getElementById("signedInContent").style.display = "block";
+  document.getElementById("tokenDisplay").textContent = loadToken();
+
+  apiGet("ping").then(function(json) {
+    const dot = document.getElementById("statusDot");
+    const text = document.getElementById("statusText");
+    if (json.success) {
+      dot.className = "dot ok";
+      text.textContent = json.data.user;
+    } else {
+      dot.className = "dot error";
+      text.textContent = "Could not verify: " + json.error;
+    }
+  }).catch(function(err) {
+    document.getElementById("statusDot").className = "dot error";
+    document.getElementById("statusText").textContent = "Could not reach the backend.";
+  });
+
+});
+
+function copyToken() {
+  navigator.clipboard.writeText(loadToken()).then(function() {
+    alert("Token copied.");
+  }).catch(function() {
+    alert("Could not copy automatically — please select and copy the token manually.");
+  });
 }
 
-function setStatus(ok, message) {
-  const dot = document.getElementById("statusDot");
-  dot.className = "dot " + (ok ? "ok" : "error");
-  document.getElementById("statusText").textContent = message;
+function recalculateRecipes() {
+  showActionResult(true, "Recalculating...");
+  apiPost("recalculateMyRecipes", {}).then(function(json) {
+    if (json.success) {
+      showActionResult(true, "Recipes recalculated.");
+    } else {
+      showActionResult(false, json.error);
+    }
+  }).catch(function(err) {
+    showActionResult(false, "Could not reach the backend: " + err.message);
+  });
 }
 
-function showResult(ok, message) {
-  const box = document.getElementById("resultBox");
+function refreshAchievements() {
+  showActionResult(true, "Refreshing...");
+  apiPost("refreshMyAchievements", {}).then(function(json) {
+    if (json.success) {
+      showActionResult(true, "Achievements refreshed.");
+    } else {
+      showActionResult(false, json.error);
+    }
+  }).catch(function(err) {
+    showActionResult(false, "Could not reach the backend: " + err.message);
+  });
+}
+
+function showActionResult(ok, message) {
+  const box = document.getElementById("actionResultBox");
   box.className = "result-box " + (ok ? "ok" : "error");
   box.textContent = message;
 }
 
-function testConnection() {
-
-  setStatus(false, "Connecting...");
-
-  apiGet("ping").then(function(json) {
-    if (json.success) {
-      setStatus(true, "Connected");
-      showResult(true, "Backend responded: " + json.data.message);
-    } else {
-      setStatus(false, "Connection failed");
-      showResult(false, "Error from backend: " + json.error);
-    }
-  }).catch(function(err) {
-    setStatus(false, "Connection failed");
-    showResult(false, "Could not reach the backend: " + err.message);
-  });
-
+function signOut() {
+  if (!confirm("Sign out of this device? You can sign back in anytime with your token.")) return;
+  clearToken();
+  window.location.href = "./index.html";
 }
 
 </script>
