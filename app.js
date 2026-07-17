@@ -128,7 +128,8 @@ function injectNavMenu() {
       { href: "./workout-templates.html", label: "Build a Template" }
     ]},
     { section: "Account", items: [
-      { href: "./settings.html", label: "Settings" }
+      { href: "./settings.html", label: "Settings" },
+      { href: "./report.html", label: "Reports" }
     ]}
   ];
 

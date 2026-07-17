@@ -102,17 +102,40 @@
     </div>
 
     <div id="signinTab">
-      <div class="helper" style="margin-top:0;">Enter the token you were given when your account was created.</div>
-      <label for="existingToken">Your Token</label>
-      <input type="text" id="existingToken" placeholder="Paste your token">
-      <button onclick="signInWithToken()">Sign In</button>
+      <div class="helper" style="margin-top:0;">Sign in with your username and password.</div>
+      <label for="loginUsername">Username</label>
+      <input type="text" id="loginUsername" placeholder="Your username">
+      <label for="loginPassword">Password</label>
+      <input type="password" id="loginPassword" placeholder="Your password">
+      <button onclick="loginWithPassword()">Sign In</button>
       <div class="result-box" id="signinResultBox"></div>
+
+      <button class="link-toggle" onclick="toggleRecovery()">Forgot access?</button>
+      <div id="recoveryForm" style="display:none; margin-top:10px;">
+        <label for="recoveryInput">Username or Email</label>
+        <input type="text" id="recoveryInput" placeholder="Enter username or email">
+        <button class="secondary" onclick="recoverAccount()">Email Me My Token</button>
+        <div class="result-box" id="recoveryResultBox"></div>
+      </div>
+
+      <button class="link-toggle" onclick="toggleExistingToken()">Have a token instead? Sign in with it</button>
+      <div id="existingTokenForm" style="display:none; margin-top:10px;">
+        <label for="existingToken">Your Token</label>
+        <input type="text" id="existingToken" placeholder="Paste your token">
+        <button class="secondary" onclick="signInWithToken()">Sign In with Token</button>
+      </div>
     </div>
 
     <div id="signupTab" style="display:none;">
       <div class="helper" style="margin-top:0;">New here? Create your account. Your data stays private to you.</div>
       <label for="signupName">Your Name</label>
       <input type="text" id="signupName" placeholder="e.g. Jamie">
+      <label for="signupUsername">Choose a Username</label>
+      <input type="text" id="signupUsername" placeholder="e.g. jamie23">
+      <label for="signupPassword">Choose a Password</label>
+      <input type="password" id="signupPassword" placeholder="At least 6 characters">
+      <label for="signupEmail">Email</label>
+      <input type="text" id="signupEmail" placeholder="you@example.com">
       <button onclick="createAccount()">Create My Account</button>
       <div class="result-box" id="signupResultBox"></div>
     </div>
@@ -262,43 +285,115 @@ function signInWithToken() {
 
 }
 
+function loginWithPassword() {
+
+  const username = document.getElementById("loginUsername").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const box = document.getElementById("signinResultBox");
+
+  if (!username || !password) {
+    box.className = "result-box error";
+    box.textContent = "Enter both username and password.";
+    return;
+  }
+
+  box.className = "result-box ok";
+  box.textContent = "Signing in...";
+
+  apiPost("login", { username: username, password: password }).then(function(json) {
+
+    if (!json.success) {
+      box.className = "result-box error";
+      box.textContent = json.error;
+      return;
+    }
+
+    saveToken(json.data.token);
+    document.getElementById("welcomeCard").style.display = "none";
+    showDashboard();
+
+  }).catch(function(err) {
+    box.className = "result-box error";
+    box.textContent = "Could not reach the backend: " + err.message;
+  });
+
+}
+
+function toggleRecovery() {
+  const form = document.getElementById("recoveryForm");
+  form.style.display = form.style.display === "none" ? "block" : "none";
+}
+
+function recoverAccount() {
+
+  const input = document.getElementById("recoveryInput").value.trim();
+  const box = document.getElementById("recoveryResultBox");
+
+  if (!input) {
+    box.className = "result-box error";
+    box.textContent = "Enter your username or email.";
+    return;
+  }
+
+  box.className = "result-box ok";
+  box.textContent = "Sending...";
+
+  apiPost("recoverAccount", { usernameOrEmail: input }).then(function(json) {
+    if (json.success) {
+      box.className = "result-box ok";
+      box.textContent = "Check your email for your sign-in token.";
+    } else {
+      box.className = "result-box error";
+      box.textContent = json.error;
+    }
+  }).catch(function(err) {
+    box.className = "result-box error";
+    box.textContent = "Could not reach the backend: " + err.message;
+  });
+
+}
+
+function toggleExistingToken() {
+  const form = document.getElementById("existingTokenForm");
+  form.style.display = form.style.display === "none" ? "block" : "none";
+}
+
 function createAccount() {
 
   const name = document.getElementById("signupName").value.trim();
+  const username = document.getElementById("signupUsername").value.trim();
+  const password = document.getElementById("signupPassword").value;
+  const email = document.getElementById("signupEmail").value.trim();
   const box = document.getElementById("signupResultBox");
 
-  if (!name) {
+  if (!name || !username || !password || !email) {
     box.className = "result-box error";
-    box.textContent = "Enter your name first.";
+    box.textContent = "Fill in all fields.";
     return;
   }
 
   box.className = "result-box ok";
   box.textContent = "Creating account...";
 
-  fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "createAccount", name: name })
-  }).then(function(response) { return response.json(); })
-    .then(function(json) {
+  apiPost("createAccount", { name: name, username: username, password: password, email: email }).then(function(json) {
 
-      if (!json.success) {
-        box.className = "result-box error";
-        box.textContent = json.error;
-        return;
-      }
-
-      saveToken(json.data.token);
-      pendingNewToken = json.data.token;
-
-      document.getElementById("welcomeCard").style.display = "none";
-      document.getElementById("newTokenDisplay").textContent = json.data.token;
-      document.getElementById("tokenConfirmCard").style.display = "block";
-
-    }).catch(function(err) {
+    if (!json.success) {
       box.className = "result-box error";
-      box.textContent = "Could not reach the backend: " + err.message;
-    });
+      box.textContent = json.error;
+      return;
+    }
+
+    saveToken(json.data.token);
+    pendingNewToken = json.data.token;
+
+    document.getElementById("welcomeCard").style.display = "none";
+    document.getElementById("newTokenDisplay").textContent = json.data.token;
+    document.getElementById("tokenConfirmCard").style.display = "block";
+
+  }).catch(function(err) {
+    box.className = "result-box error";
+    box.textContent = "Could not reach the backend: " + err.message;
+  });
 
 }
 

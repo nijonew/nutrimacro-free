@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Reports</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0B1626">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Account</div>
+    <h1>Reports</h1>
+  </div>
+  <a class="back" href="./settings.html">&larr; Settings</a>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Email me a report</h2>
+    <div class="helper" style="margin-top:0;">Generates a PDF and emails it to the address on your account.</div>
+
+    <div class="segmented">
+      <button id="typeNutritionBtn" class="active" onclick="setReportType('nutrition')">Nutrition</button>
+      <button id="typeWorkoutBtn" onclick="setReportType('workout')">Workout</button>
+      <button id="typeBothBtn" onclick="setReportType('both')">Both</button>
+    </div>
+
+    <div class="row-2">
+      <div>
+        <label for="startDateInput">Start Date</label>
+        <input type="date" id="startDateInput">
+      </div>
+      <div>
+        <label for="endDateInput">End Date</label>
+        <input type="date" id="endDateInput">
+      </div>
+    </div>
+
+    <button onclick="sendReport()">Email My Report</button>
+    <div class="result-box" id="resultBox"></div>
+  </div>
+
+</main>
+
+<script src="./app.js"></script>
+<script>
+
+let reportType = "nutrition";
+
+window.addEventListener("load", function() {
+
+  if (!isConfigured()) {
+    window.location.href = "./index.html";
+    return;
+  }
+
+  registerServiceWorker();
+
+  const today = new Date();
+  const weekAgo = new Date();
+  weekAgo.setDate(today.getDate() - 6);
+
+  document.getElementById("endDateInput").valueAsDate = today;
+  document.getElementById("startDateInput").valueAsDate = weekAgo;
+
+});
+
+function setReportType(type) {
+
+  reportType = type;
+
+  document.getElementById("typeNutritionBtn").className = (type === "nutrition") ? "active" : "";
+  document.getElementById("typeWorkoutBtn").className = (type === "workout") ? "active" : "";
+  document.getElementById("typeBothBtn").className = (type === "both") ? "active" : "";
+
+}
+
+function sendReport() {
+
+  const startDate = document.getElementById("startDateInput").value;
+  const endDate = document.getElementById("endDateInput").value;
+  const box = document.getElementById("resultBox");
+
+  if (!startDate || !endDate) {
+    box.className = "result-box error";
+    box.textContent = "Choose both a start and end date.";
+    return;
+  }
+
+  if (startDate > endDate) {
+    box.className = "result-box error";
+    box.textContent = "Start date must be before end date.";
+    return;
+  }
+
+  box.className = "result-box ok";
+  box.textContent = "Building your report and sending it — this can take a little while for longer date ranges...";
+
+  apiPost("sendReport", {
+    reportType: reportType,
+    startDate: startDate,
+    endDate: endDate
+  }).then(function(json) {
+
+    if (!json.success) {
+      box.className = "result-box error";
+      box.textContent = json.error;
+      return;
+    }
+
+    box.className = "result-box ok";
+    box.textContent = "Sent to " + json.data.email + ".";
+
+  }).catch(function(err) {
+    box.className = "result-box error";
+    box.textContent = "Could not reach the backend: " + err.message;
+  });
+
+}
+
+</script>
+
+</body>
+</html>

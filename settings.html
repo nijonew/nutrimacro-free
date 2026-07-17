@@ -53,6 +53,25 @@
     </div>
 
     <div class="card">
+      <h2>Sign-in credentials</h2>
+      <div class="helper" style="margin-top:0;">Set or update your username, password, and email — useful if your account currently only has a token.</div>
+      <label for="credUsername">Username</label>
+      <input type="text" id="credUsername" placeholder="Choose a username">
+      <label for="credPassword">New Password</label>
+      <input type="password" id="credPassword" placeholder="Leave blank to keep current password">
+      <label for="credEmail">Email</label>
+      <input type="text" id="credEmail" placeholder="you@example.com">
+      <button onclick="saveCredentials()">Save Credentials</button>
+      <div class="result-box" id="credResultBox"></div>
+    </div>
+
+    <div class="card">
+      <h2>Reports</h2>
+      <div class="helper" style="margin-top:0;">Email yourself a PDF report of your nutrition and/or workout history.</div>
+      <a href="./report.html" style="text-decoration:none;"><button class="secondary">Go to Reports</button></a>
+    </div>
+
+    <div class="card">
       <h2>Your account token</h2>
       <div class="helper" style="margin-top:0;">Use this to sign in on another device. Keep it private — anyone with this token can see and edit your data.</div>
       <div class="token-display" id="tokenDisplay"></div>
@@ -108,6 +127,9 @@ window.addEventListener("load", function() {
     if (json.success) {
       dot.className = "dot ok";
       text.textContent = json.data.user;
+      if (json.data.email) {
+        document.getElementById("credEmail").value = json.data.email;
+      }
     } else {
       dot.className = "dot error";
       text.textContent = "Could not verify: " + json.error;
@@ -118,6 +140,44 @@ window.addEventListener("load", function() {
   });
 
 });
+
+function saveCredentials() {
+
+  const username = document.getElementById("credUsername").value.trim();
+  const password = document.getElementById("credPassword").value;
+  const email = document.getElementById("credEmail").value.trim();
+  const box = document.getElementById("credResultBox");
+
+  if (!username && !password && !email) {
+    box.className = "result-box error";
+    box.textContent = "Enter at least one field to update.";
+    return;
+  }
+
+  if (password && password.length < 6) {
+    box.className = "result-box error";
+    box.textContent = "Password must be at least 6 characters.";
+    return;
+  }
+
+  box.className = "result-box ok";
+  box.textContent = "Saving...";
+
+  apiPost("setCredentials", { username: username, password: password, email: email }).then(function(json) {
+    if (json.success) {
+      box.className = "result-box ok";
+      box.textContent = "Saved. You can now sign in with your username and password.";
+      document.getElementById("credPassword").value = "";
+    } else {
+      box.className = "result-box error";
+      box.textContent = json.error;
+    }
+  }).catch(function(err) {
+    box.className = "result-box error";
+    box.textContent = "Could not reach the backend: " + err.message;
+  });
+
+}
 
 function copyToken() {
   navigator.clipboard.writeText(loadToken()).then(function() {
