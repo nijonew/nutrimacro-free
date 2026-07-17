@@ -88,11 +88,20 @@ function injectNavMenu() {
   toggleBtn.setAttribute("aria-label", "Menu");
   toggleBtn.onclick = function() { toggleNavPanel(); };
 
-  const leftWrap = document.createElement("div");
-  leftWrap.className = "header-left-wrap";
-  header.insertBefore(leftWrap, titlesEl);
-  leftWrap.appendChild(toggleBtn);
-  leftWrap.appendChild(titlesEl);
+  const rightWrap = document.createElement("div");
+  rightWrap.className = "header-right-wrap";
+
+  // Move any existing non-.titles header children (gear icon, back link,
+  // etc.) into the right-side wrap alongside the new menu button, so
+  // everything on the right groups together instead of colliding.
+  Array.from(header.children).forEach(function(child) {
+    if (child !== titlesEl) {
+      rightWrap.appendChild(child);
+    }
+  });
+
+  rightWrap.appendChild(toggleBtn);
+  header.appendChild(rightWrap);
 
   const overlay = document.createElement("div");
   overlay.className = "nav-overlay";
@@ -155,3 +164,25 @@ function closeNavPanel() {
 window.addEventListener("DOMContentLoaded", function() {
   injectNavMenu();
 });
+
+// ============================================================
+// Macro percent-of-calories helper
+// Uses standard Atwater factors (protein 4 kcal/g, carbs 4 kcal/g,
+// fat 9 kcal/g) against the day's actual logged Calories total.
+// ============================================================
+
+function calculateMacroPercents(totals) {
+
+  const calories = Number(totals.calories) || 0;
+
+  if (!calories) {
+    return { protein: 0, carbs: 0, fat: 0 };
+  }
+
+  return {
+    protein: Math.round(((Number(totals.protein) || 0) * 4 / calories) * 100),
+    carbs: Math.round(((Number(totals.carbs) || 0) * 4 / calories) * 100),
+    fat: Math.round(((Number(totals.fat) || 0) * 9 / calories) * 100)
+  };
+
+}

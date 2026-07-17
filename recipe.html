@@ -86,7 +86,9 @@
   <div class="card">
     <h2>Recipe name</h2>
     <input type="text" id="recipeNameInput" placeholder="e.g. Chicken Stir Fry">
-    <div class="helper">Using the exact name of an existing recipe adds these ingredients to it instead of starting a new one.</div>
+    <label for="servingsInput">Servings this recipe makes</label>
+    <input type="text" id="servingsInput" placeholder="1" value="1">
+    <div class="helper">e.g. a lasagna that makes 16 servings — then "1 serving" logged later means 1/16 of the batch. Leave at 1 if the whole recipe is a single serving (like a smoothie).</div>
   </div>
 
   <div class="card">
@@ -242,7 +244,7 @@ function renderIngredients() {
       "<input type='text' placeholder='amt' value='" + escapeHtml(ing.amount) + "' " +
         "onchange='updateIngredientAmount(" + i + ", this.value)'>" +
       "<select onchange='updateIngredientUnit(" + i + ", this.value)'>" +
-        ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz"].map(function(u) {
+        ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","serving"].map(function(u) {
           return "<option value='" + u + "'" + (ing.unit === u ? " selected" : "") + ">" + u + "</option>";
         }).join("") +
       "</select>" +
@@ -315,7 +317,8 @@ function saveRecipe() {
 
   apiPost("saveRecipe", {
     recipeName: recipeName,
-    ingredients: payloadIngredients
+    ingredients: payloadIngredients,
+    servings: document.getElementById("servingsInput").value.trim() || "1"
   }).then(function(json) {
 
     if (!json.success) {

@@ -87,7 +87,7 @@
     <div id="localResultsWrap">
       <div class="helper" style="margin-top:0;">Your foods</div>
       <div class="result-list" id="localResults"></div>
-      <button class="secondary" id="addSelectedBtn" style="display:none; margin-top:0; margin-bottom:12px;" onclick="addSelectedToCart()">Add Selected (<span id="selectedCount">0</span>) to Cart</button>
+      <button class="secondary" id="addSelectedBtn" style="display:none; margin-top:0; margin-bottom:12px;" onclick="addSelectedToCart()">Add to Meal</button>
     </div>
 
     <div id="usdaSection" style="display:none;">
@@ -103,7 +103,7 @@
 
   <!-- CART -->
   <div class="card" id="cartCard" style="display:none;">
-    <h2>Cart (<span id="cartCount">0</span>)</h2>
+    <h2>Your Meal (<span id="cartCount">0</span>)</h2>
     <div id="cartList"></div>
   </div>
 
@@ -245,8 +245,16 @@ function toggleSelected(name, checked) {
 
 function updateSelectedCount() {
   const count = selectedNames.size;
-  document.getElementById("selectedCount").textContent = count;
-  document.getElementById("addSelectedBtn").style.display = count > 0 ? "block" : "none";
+  const btn = document.getElementById("addSelectedBtn");
+  if (count === 0) {
+    btn.style.display = "none";
+  } else if (count === 1) {
+    btn.style.display = "block";
+    btn.textContent = "Add to Meal";
+  } else {
+    btn.style.display = "block";
+    btn.textContent = "Add All (" + count + ") to Meal";
+  }
 }
 
 function addSelectedToCart() {
@@ -361,7 +369,7 @@ function renderCart() {
       "<input type='text' placeholder='amt' value='" + escapeHtml(item.amount) + "' " +
         "onchange='updateCartAmount(" + i + ", this.value)'>" +
       "<select onchange='updateCartUnit(" + i + ", this.value)'>" +
-        ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz"].map(function(u) {
+        ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","serving"].map(function(u) {
           return "<option value='" + u + "'" + (item.unit === u ? " selected" : "") + ">" + u + "</option>";
         }).join("") +
       "</select>" +

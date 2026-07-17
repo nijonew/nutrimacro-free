@@ -140,14 +140,17 @@
           <div class="label">Calories</div>
         </div>
         <div class="total-tile protein">
+          <div class="pct-label" id="pctProtein"></div>
           <div class="value" id="totalProtein">–</div>
           <div class="label">Protein (g)</div>
         </div>
         <div class="total-tile carbs">
+          <div class="pct-label" id="pctCarbs"></div>
           <div class="value" id="totalCarbs">–</div>
           <div class="label">Carbs (g)</div>
         </div>
         <div class="total-tile fat">
+          <div class="pct-label" id="pctFat"></div>
           <div class="value" id="totalFat">–</div>
           <div class="label">Fat (g)</div>
         </div>
@@ -348,6 +351,11 @@ function setTotals(totals) {
   document.getElementById("totalFat").textContent = totals.fat;
   document.getElementById("totalFiber").textContent = totals.fiber;
   document.getElementById("totalNetCarbs").textContent = totals.netCarbs;
+
+  const pct = calculateMacroPercents(totals);
+  document.getElementById("pctProtein").textContent = totals.calories ? pct.protein + "%" : "";
+  document.getElementById("pctCarbs").textContent = totals.calories ? pct.carbs + "%" : "";
+  document.getElementById("pctFat").textContent = totals.calories ? pct.fat + "%" : "";
 }
 
 </script>
