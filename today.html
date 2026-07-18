@@ -294,7 +294,7 @@ function renderGroupedEntries(entries, viewedDate) {
           "<span class='entry-name'>" + escapeHtml(e.name) + "</span>" +
         "</div>" +
         "<div class='entry-meta'>" +
-          e.amount + " " + escapeHtml(e.unit) + " &middot; " +
+          formatAmountForDisplay(e.amount) + " " + escapeHtml(e.unit) + " &middot; " +
           e.calories + " cal &middot; " +
           "<span class='protein'>" + e.protein + "g P</span> &middot; " +
           "<span class='carbs'>" + e.carbs + "g C</span> &middot; " +
@@ -305,7 +305,7 @@ function renderGroupedEntries(entries, viewedDate) {
     }).join("");
 
     const repeatButton = isPastDay
-      ? "<button class='repeat-btn' onclick='repeatMealToToday(" + JSON.stringify(viewedDate) + ", " + JSON.stringify(meal) + ")'>Repeat this meal to today</button>"
+      ? "<button class='repeat-btn' onclick='repeatMealToToday(" + jsStringLiteral(viewedDate) + ", " + jsStringLiteral(meal) + ")'>Repeat this meal to today</button>"
       : "";
 
     return "<div class='meal-group'>" +

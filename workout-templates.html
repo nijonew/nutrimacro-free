@@ -135,7 +135,7 @@ function onExerciseSearch() {
   }
 
   container.innerHTML = matches.map(function(name) {
-    return "<div class='result-item' onclick='addExercise(" + JSON.stringify(name) + ")'>" +
+    return "<div class='result-item' onclick='addExercise(" + jsStringLiteral(name) + ")'>" +
       "<div class='item-name'>" + escapeHtml(name) + "</div>" +
     "</div>";
   }).join("");

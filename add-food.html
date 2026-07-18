@@ -50,6 +50,7 @@
           <option value="tbsp">tbsp</option>
           <option value="cup">cup</option>
           <option value="fl_oz">fl oz</option>
+          <option value="piece">piece(s)</option>
         </select>
       </div>
     </div>
@@ -57,28 +58,28 @@
 
     <div class="row-2">
       <div>
-        <label for="caloriesInput">Calories *</label>
+        <label for="caloriesInput">Calories</label>
         <input type="text" id="caloriesInput" placeholder="0">
       </div>
       <div>
-        <label for="proteinInput">Protein (g) *</label>
-        <input type="text" id="proteinInput" placeholder="0">
+        <label for="fatInput">Fat (g)</label>
+        <input type="text" id="fatInput" placeholder="0">
       </div>
     </div>
 
     <div class="row-2">
       <div>
-        <label for="fatInput">Fat (g) *</label>
-        <input type="text" id="fatInput" placeholder="0">
+        <label for="carbsInput">Carbs (g)</label>
+        <input type="text" id="carbsInput" placeholder="0">
       </div>
       <div>
-        <label for="carbsInput">Carbs (g) *</label>
-        <input type="text" id="carbsInput" placeholder="0">
+        <label for="fiberInput">Fiber (g)</label>
+        <input type="text" id="fiberInput" placeholder="0">
       </div>
     </div>
 
-    <label for="fiberInput">Fiber (g)</label>
-    <input type="text" id="fiberInput" placeholder="0">
+    <label for="proteinInput">Protein (g)</label>
+    <input type="text" id="proteinInput" placeholder="0">
 
     <label for="notesInput">Notes (optional)</label>
     <textarea id="notesInput" rows="2"></textarea>
@@ -105,17 +106,13 @@ function saveFood() {
 
   const name = document.getElementById("nameInput").value.trim();
   const servingSize = parseFloat(document.getElementById("servingSizeInput").value);
-  const calories = parseFloat(document.getElementById("caloriesInput").value);
-  const protein = parseFloat(document.getElementById("proteinInput").value);
-  const fat = parseFloat(document.getElementById("fatInput").value);
-  const carbs = parseFloat(document.getElementById("carbsInput").value);
+  const calories = parseFloat(document.getElementById("caloriesInput").value) || 0;
+  const protein = parseFloat(document.getElementById("proteinInput").value) || 0;
+  const fat = parseFloat(document.getElementById("fatInput").value) || 0;
+  const carbs = parseFloat(document.getElementById("carbsInput").value) || 0;
 
   if (!name) { showResult(false, "Food name is required."); return; }
   if (!servingSize || isNaN(servingSize) || servingSize <= 0) { showResult(false, "Enter a valid serving size."); return; }
-  if (isNaN(calories) || isNaN(protein) || isNaN(fat) || isNaN(carbs)) {
-    showResult(false, "Calories, Protein, Fat, and Carbs must all be numbers.");
-    return;
-  }
 
   const fields = {
     name: name,

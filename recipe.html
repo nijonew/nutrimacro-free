@@ -94,10 +94,20 @@
   <div class="card">
     <h2>Add ingredients</h2>
     <label for="ingredientSearch">Search your Foods</label>
-    <input type="text" id="ingredientSearch" placeholder="Start typing a saved food..." oninput="onIngredientSearch()">
+    <input type="text" id="ingredientSearch" placeholder="Start typing a saved food..." oninput="onIngredientSearch()" onkeypress="if(event.key==='Enter'){event.preventDefault();onIngredientEnterPressed();}">
     <div class="result-list" id="ingredientResults" style="display:none;"></div>
-    <button class="secondary" id="addSelectedBtn" style="display:none; margin-top:10px;" onclick="addSelectedIngredients()">Add Selected (<span id="selectedCount">0</span>)</button>
-    <div class="helper" style="margin-bottom:0; margin-top:10px;">Ingredients come from your Foods list. Import new foods from the Log screen first if something's missing.</div>
+    <button class="secondary" id="addSelectedBtn" style="display:none; margin-top:10px;" onclick="addSelectedIngredients()">Add Selected</button>
+
+    <div id="ingredientUsdaSection" style="display:none;">
+      <div class="helper">USDA database (tap one to import &amp; add)</div>
+      <div class="result-list" id="ingredientUsdaResults"></div>
+    </div>
+
+    <button class="secondary" id="searchIngredientUsdaBtn" style="display:none;" onclick="searchIngredientUsda()">
+      Search USDA for &ldquo;<span id="ingredientUsdaQueryLabel"></span>&rdquo;
+    </button>
+
+    <div class="helper" style="margin-bottom:0; margin-top:10px;">Ingredients come from your Foods list, or search USDA if something's missing.</div>
   </div>
 
   <div class="card" id="ingredientListCard" style="display:none;">
@@ -155,8 +165,12 @@ function onIngredientSearch() {
   selectedNames.clear();
   updateSelectedCount();
 
+  document.getElementById("ingredientUsdaSection").style.display = "none";
+  document.getElementById("ingredientUsdaResults").innerHTML = "";
+
   if (query.length === 0) {
     resultsBox.style.display = "none";
+    document.getElementById("searchIngredientUsdaBtn").style.display = "none";
     return;
   }
 
@@ -168,16 +182,87 @@ function onIngredientSearch() {
 
   if (matches.length === 0) {
     resultsBox.innerHTML = "<div class='empty-state'>No matches in your Foods list.</div>";
-    return;
+  } else {
+    resultsBox.innerHTML = matches.map(function(name) {
+      const safeId = "chk_" + btoa(unescape(encodeURIComponent(name))).replace(/[^a-zA-Z0-9]/g, "");
+      return "<div class='result-item checkable'>" +
+        "<input type='checkbox' id='" + safeId + "' onchange='toggleSelected(" + jsStringLiteral(name) + ", this.checked)'>" +
+        "<label for='" + safeId + "' class='item-name' style='flex:1; margin:0; font-weight:600; color:var(--ink);'>" + escapeHtml(name) + "</label>" +
+      "</div>";
+    }).join("");
   }
 
-  resultsBox.innerHTML = matches.map(function(name) {
-    const safeId = "chk_" + btoa(unescape(encodeURIComponent(name))).replace(/[^a-zA-Z0-9]/g, "");
-    return "<div class='result-item checkable'>" +
-      "<input type='checkbox' id='" + safeId + "' onchange='toggleSelected(" + JSON.stringify(name) + ", this.checked)'>" +
-      "<label for='" + safeId + "' class='item-name' style='flex:1; margin:0; font-weight:600; color:var(--ink);'>" + escapeHtml(name) + "</label>" +
-    "</div>";
-  }).join("");
+  document.getElementById("ingredientUsdaQueryLabel").textContent = query;
+  document.getElementById("searchIngredientUsdaBtn").style.display = (query.length >= 2) ? "block" : "none";
+
+}
+
+function onIngredientEnterPressed() {
+  const query = document.getElementById("ingredientSearch").value.trim();
+  if (query.length >= 2 && selectedNames.size === 0) {
+    searchIngredientUsda();
+  }
+}
+
+function searchIngredientUsda() {
+
+  const query = document.getElementById("ingredientSearch").value.trim();
+  const usdaSection = document.getElementById("ingredientUsdaSection");
+  const usdaResults = document.getElementById("ingredientUsdaResults");
+
+  usdaSection.style.display = "block";
+  usdaResults.innerHTML = "<div class='empty-state'>Searching USDA...</div>";
+
+  apiGet("searchFoods", { query: query }).then(function(json) {
+
+    if (!json.success) {
+      usdaResults.innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
+      return;
+    }
+
+    if (json.data.length === 0) {
+      usdaResults.innerHTML = "<div class='empty-state'>No USDA results found.</div>";
+      return;
+    }
+
+    usdaResults.innerHTML = json.data.map(function(food) {
+      return "<div class='result-item' onclick='importIngredientFromUsda(" + food.fdcId + ")'>" +
+        "<div class='item-name'>" + escapeHtml(food.description) + "</div>" +
+        "<div class='item-meta'>" + escapeHtml(food.dataType) +
+        (food.brand ? " &middot; " + escapeHtml(food.brand) : "") + "</div>" +
+        "</div>";
+    }).join("");
+
+  }).catch(function(err) {
+    usdaResults.innerHTML = "<div class='empty-state'>Could not reach USDA: " + escapeHtml(err.message) + "</div>";
+  });
+
+}
+
+function importIngredientFromUsda(fdcId) {
+
+  const usdaResults = document.getElementById("ingredientUsdaResults");
+  usdaResults.innerHTML = "<div class='empty-state'>Importing...</div>";
+
+  apiPost("importFood", { fdcId: fdcId }).then(function(json) {
+
+    if (!json.success) {
+      usdaResults.innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
+      return;
+    }
+
+    localFoodNames.push(json.data.description);
+    ingredients.push({ name: json.data.description, amount: "", unit: "g" });
+
+    document.getElementById("ingredientUsdaSection").style.display = "none";
+    document.getElementById("ingredientSearch").value = "";
+    onIngredientSearch();
+
+    renderIngredients();
+
+  }).catch(function(err) {
+    usdaResults.innerHTML = "<div class='empty-state'>Import failed: " + escapeHtml(err.message) + "</div>";
+  });
 
 }
 
@@ -192,22 +277,43 @@ function toggleSelected(name, checked) {
 
 function updateSelectedCount() {
   const count = selectedNames.size;
-  document.getElementById("selectedCount").textContent = count;
-  document.getElementById("addSelectedBtn").style.display = count > 0 ? "block" : "none";
+  const btn = document.getElementById("addSelectedBtn");
+  if (count === 0) {
+    btn.style.display = "none";
+    const query = document.getElementById("ingredientSearch").value.trim();
+    document.getElementById("searchIngredientUsdaBtn").style.display = (query.length >= 2) ? "block" : "none";
+  } else {
+    btn.style.display = "block";
+    btn.textContent = (count === 1) ? "Add to Recipe" : "Add All (" + count + ") to Recipe";
+    document.getElementById("searchIngredientUsdaBtn").style.display = "none";
+    document.getElementById("ingredientUsdaSection").style.display = "none";
+  }
 }
 
 function addSelectedIngredients() {
 
-  selectedNames.forEach(function(name) {
-    ingredients.push({ name: name, amount: "", unit: "g" });
+  const names = Array.from(selectedNames);
+
+  Promise.all(names.map(function(name) {
+    return apiGet("getFoodDetails", { name: name }).then(function(json) {
+      return { name: name, unit: (json.success && json.data.servingUnit) ? json.data.servingUnit : "g" };
+    }).catch(function() {
+      return { name: name, unit: "g" };
+    });
+  })).then(function(results) {
+
+    results.forEach(function(r) {
+      ingredients.push({ name: r.name, amount: "", unit: r.unit });
+    });
+
+    selectedNames.clear();
+    document.getElementById("ingredientSearch").value = "";
+    document.getElementById("ingredientResults").style.display = "none";
+    updateSelectedCount();
+
+    renderIngredients();
+
   });
-
-  selectedNames.clear();
-  document.getElementById("ingredientSearch").value = "";
-  document.getElementById("ingredientResults").style.display = "none";
-  updateSelectedCount();
-
-  renderIngredients();
 
 }
 
@@ -244,8 +350,9 @@ function renderIngredients() {
       "<input type='text' placeholder='amt' value='" + escapeHtml(ing.amount) + "' " +
         "onchange='updateIngredientAmount(" + i + ", this.value)'>" +
       "<select onchange='updateIngredientUnit(" + i + ", this.value)'>" +
-        ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","serving"].map(function(u) {
-          return "<option value='" + u + "'" + (ing.unit === u ? " selected" : "") + ">" + u + "</option>";
+        ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","piece","serving"].map(function(u) {
+          const label = (u === "serving") ? "serving(s)" : (u === "piece") ? "piece(s)" : u;
+          return "<option value='" + u + "'" + (ing.unit === u ? " selected" : "") + ">" + label + "</option>";
         }).join("") +
       "</select>" +
       "<button class='remove-btn' onclick='removeIngredient(" + i + ")'>&times;</button>" +

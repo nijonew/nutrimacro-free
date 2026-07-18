@@ -91,12 +91,12 @@ function injectNavMenu() {
   const rightWrap = document.createElement("div");
   rightWrap.className = "header-right-wrap";
 
-  // Move any existing non-.titles header children (gear icon, back link,
-  // etc.) into the right-side wrap alongside the new menu button, so
-  // everything on the right groups together instead of colliding.
+  // Remove any existing non-.titles header children (old gear icon,
+  // back/forward links, etc.) entirely — the hamburger menu now
+  // covers all navigation, so these were redundant clutter.
   Array.from(header.children).forEach(function(child) {
     if (child !== titlesEl) {
-      rightWrap.appendChild(child);
+      child.remove();
     }
   });
 
@@ -186,4 +186,29 @@ function calculateMacroPercents(totals) {
     fat: Math.round(((Number(totals.fat) || 0) * 9 / calories) * 100)
   };
 
+}
+
+// ============================================================
+// Safe string embedding for inline onclick handlers.
+// JSON.stringify alone doesn't escape apostrophes, which breaks
+// single-quoted HTML attributes for any name containing one
+// (e.g. "Nick's Granola") — silently, with no visible error.
+// ============================================================
+
+function jsStringLiteral(str) {
+  return JSON.stringify(str).replace(/'/g, "\\u0027");
+}
+
+// ============================================================
+// Amount display formatting — rounds a raw stored amount (which
+// may be a long fraction-derived decimal like 0.08333333333333)
+// down to a sane number of decimal places for display only. Does
+// NOT affect what's stored or used in macro math elsewhere.
+// ============================================================
+
+function formatAmountForDisplay(amount) {
+  const num = Number(amount);
+  if (isNaN(num)) return amount;
+  const rounded = Math.round(num * 1000) / 1000;
+  return rounded.toString();
 }

@@ -29,24 +29,27 @@
     gap: 8px;
     padding: 10px 0;
     border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
   }
 
   .cart-row:last-child { border-bottom: none; }
 
   .cart-name {
-    flex: 1;
+    flex-basis: 100%;
     font-size: 14px;
     font-weight: 600;
+    margin-bottom: 4px;
   }
 
   .cart-row input, .cart-row select {
     margin-bottom: 0;
-    width: 70px;
+    width: 68px;
     padding: 8px;
     font-size: 13px;
   }
 
-  .cart-row select { width: 78px; }
+  .cart-row select.unit-select { width: 78px; }
+  .cart-row select.meal-select { width: 90px; }
 
   .remove-btn {
     width: auto;
@@ -81,8 +84,15 @@
       <button id="typeRecipeBtn" onclick="setType('Recipe')">Recipe</button>
     </div>
 
+    <a href="./add-food.html" id="createFoodShortcut" style="text-decoration:none; display:block; margin-bottom:12px;">
+      <button class="secondary">+ Create a New Food</button>
+    </a>
+    <a href="./recipe.html" id="createRecipeShortcut" style="text-decoration:none; display:none; margin-bottom:12px;">
+      <button class="secondary">+ Create a New Recipe</button>
+    </a>
+
     <label for="searchInput">Search</label>
-    <input type="text" id="searchInput" placeholder="Start typing a name..." oninput="onSearchInput()">
+    <input type="text" id="searchInput" placeholder="Start typing a name..." oninput="onSearchInput()" onkeypress="if(event.key==='Enter'){event.preventDefault();onEnterPressed();}">
 
     <div id="localResultsWrap">
       <div class="helper" style="margin-top:0;">Your foods</div>
@@ -117,7 +127,7 @@
         <input type="date" id="dateInput">
       </div>
       <div>
-        <label for="mealInput">Meal</label>
+        <label for="mealInput">Default Meal (for new items)</label>
         <select id="mealInput">
           <option>Breakfast</option>
           <option>Lunch</option>
@@ -130,7 +140,7 @@
     <label for="notesInput">Notes (optional, applied to all items)</label>
     <textarea id="notesInput" rows="2"></textarea>
 
-    <button onclick="submitCart()">Log All</button>
+    <button onclick="submitCart()">Log Meal</button>
     <div class="result-box" id="logResultBox"></div>
 
   </div>
@@ -178,6 +188,9 @@ function setType(type) {
 
   document.getElementById("typeFoodBtn").className = (type === "Food") ? "active" : "";
   document.getElementById("typeRecipeBtn").className = (type === "Recipe") ? "active" : "";
+
+  document.getElementById("createFoodShortcut").style.display = (type === "Food") ? "block" : "none";
+  document.getElementById("createRecipeShortcut").style.display = (type === "Recipe") ? "block" : "none";
 
   document.getElementById("searchUsdaBtn").style.display = "none";
   document.getElementById("usdaSection").style.display = "none";
@@ -231,7 +244,7 @@ function renderLocalResults(matches, query) {
   container.innerHTML = matches.map(function(name) {
     const safeId = "chk_" + btoa(unescape(encodeURIComponent(name))).replace(/[^a-zA-Z0-9]/g, "");
     return "<div class='result-item checkable'>" +
-      "<input type='checkbox' id='" + safeId + "' onchange='toggleSelected(" + JSON.stringify(name) + ", this.checked)'>" +
+      "<input type='checkbox' id='" + safeId + "' onchange='toggleSelected(" + jsStringLiteral(name) + ", this.checked)'>" +
       "<label for='" + safeId + "' style='flex:1; margin:0; font-weight:600; color:var(--ink);'>" + escapeHtml(name) + "</label>" +
     "</div>";
   }).join("");
@@ -248,26 +261,69 @@ function updateSelectedCount() {
   const btn = document.getElementById("addSelectedBtn");
   if (count === 0) {
     btn.style.display = "none";
+    document.getElementById("searchUsdaBtn").style.display =
+      (currentType === "Food" && document.getElementById("searchInput").value.trim().length >= 2) ? "block" : "none";
   } else if (count === 1) {
     btn.style.display = "block";
     btn.textContent = "Add to Meal";
+    document.getElementById("searchUsdaBtn").style.display = "none";
+    document.getElementById("usdaSection").style.display = "none";
   } else {
     btn.style.display = "block";
     btn.textContent = "Add All (" + count + ") to Meal";
+    document.getElementById("searchUsdaBtn").style.display = "none";
+    document.getElementById("usdaSection").style.display = "none";
   }
+}
+
+function onEnterPressed() {
+
+  const query = document.getElementById("searchInput").value.trim();
+
+  if (currentType === "Food" && query.length >= 2 && selectedNames.size === 0) {
+    searchUsda();
+  }
+
 }
 
 function addSelectedToCart() {
 
-  selectedNames.forEach(function(name) {
-    cart.push({ type: currentType, name: name, amount: "", unit: "g" });
+  const names = Array.from(selectedNames);
+
+  if (currentType === "Recipe") {
+
+    names.forEach(function(name) {
+      cart.push({ type: "Recipe", name: name, amount: "", unit: "serving", meal: document.getElementById("mealInput").value });
+    });
+
+    selectedNames.clear();
+    document.getElementById("searchInput").value = "";
+    onSearchInput();
+    renderCart();
+    return;
+
+  }
+
+  // Look up each food's native serving unit so it's pre-selected by
+  // default, instead of always defaulting to grams.
+  Promise.all(names.map(function(name) {
+    return apiGet("getFoodDetails", { name: name }).then(function(json) {
+      return { name: name, unit: (json.success && json.data.servingUnit) ? json.data.servingUnit : "g" };
+    }).catch(function() {
+      return { name: name, unit: "g" };
+    });
+  })).then(function(results) {
+
+    results.forEach(function(r) {
+      cart.push({ type: "Food", name: r.name, amount: "", unit: r.unit, meal: document.getElementById("mealInput").value });
+    });
+
+    selectedNames.clear();
+    document.getElementById("searchInput").value = "";
+    onSearchInput();
+    renderCart();
+
   });
-
-  selectedNames.clear();
-  document.getElementById("searchInput").value = "";
-  onSearchInput();
-
-  renderCart();
 
 }
 
@@ -319,7 +375,7 @@ function importAndAddToCart(fdcId) {
     }
 
     localFoodNames.push(json.data.description);
-    cart.push({ type: "Food", name: json.data.description, amount: "", unit: "g" });
+    cart.push({ type: "Food", name: json.data.description, amount: "", unit: "g", meal: document.getElementById("mealInput").value });
 
     document.getElementById("usdaSection").style.display = "none";
     document.getElementById("searchInput").value = "";
@@ -366,17 +422,27 @@ function renderCart() {
   cartList.innerHTML = cart.map(function(item, i) {
     return "<div class='cart-row'>" +
       "<span class='cart-name'>" + escapeHtml(item.name) + "</span>" +
+      "<select class='meal-select' onchange='updateCartMeal(" + i + ", this.value)'>" +
+        ["Breakfast","Lunch","Dinner","Snack"].map(function(m) {
+          return "<option value='" + m + "'" + (item.meal === m ? " selected" : "") + ">" + m + "</option>";
+        }).join("") +
+      "</select>" +
       "<input type='text' placeholder='amt' value='" + escapeHtml(item.amount) + "' " +
         "onchange='updateCartAmount(" + i + ", this.value)'>" +
-      "<select onchange='updateCartUnit(" + i + ", this.value)'>" +
-        ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","serving"].map(function(u) {
-          return "<option value='" + u + "'" + (item.unit === u ? " selected" : "") + ">" + u + "</option>";
+      "<select class='unit-select' onchange='updateCartUnit(" + i + ", this.value)'>" +
+        ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","piece","serving"].map(function(u) {
+          const label = (u === "serving") ? "serving(s)" : (u === "piece") ? "piece(s)" : u;
+          return "<option value='" + u + "'" + (item.unit === u ? " selected" : "") + ">" + label + "</option>";
         }).join("") +
       "</select>" +
       "<button class='remove-btn' onclick='removeCartItem(" + i + ")'>&times;</button>" +
     "</div>";
   }).join("");
 
+}
+
+function updateCartMeal(index, value) {
+  cart[index].meal = value;
 }
 
 function parseAmount(str) {
@@ -407,7 +473,6 @@ function parseAmount(str) {
 function submitCart() {
 
   const date = document.getElementById("dateInput").value;
-  const meal = document.getElementById("mealInput").value;
   const notes = document.getElementById("notesInput").value.trim();
 
   const entries = [];
@@ -423,7 +488,7 @@ function submitCart() {
 
     entries.push({
       date: date,
-      meal: meal,
+      meal: cart[i].meal,
       type: cart[i].type,
       name: cart[i].name,
       amount: amount,

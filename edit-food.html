@@ -59,34 +59,35 @@
           <option value="tbsp">tbsp</option>
           <option value="cup">cup</option>
           <option value="fl_oz">fl oz</option>
+          <option value="piece">piece(s)</option>
         </select>
       </div>
     </div>
 
     <div class="row-2">
       <div>
-        <label for="caloriesInput">Calories *</label>
+        <label for="caloriesInput">Calories</label>
         <input type="text" id="caloriesInput">
       </div>
       <div>
-        <label for="proteinInput">Protein (g) *</label>
-        <input type="text" id="proteinInput">
+        <label for="fatInput">Fat (g)</label>
+        <input type="text" id="fatInput">
       </div>
     </div>
 
     <div class="row-2">
       <div>
-        <label for="fatInput">Fat (g) *</label>
-        <input type="text" id="fatInput">
+        <label for="carbsInput">Carbs (g)</label>
+        <input type="text" id="carbsInput">
       </div>
       <div>
-        <label for="carbsInput">Carbs (g) *</label>
-        <input type="text" id="carbsInput">
+        <label for="fiberInput">Fiber (g)</label>
+        <input type="text" id="fiberInput">
       </div>
     </div>
 
-    <label for="fiberInput">Fiber (g)</label>
-    <input type="text" id="fiberInput">
+    <label for="proteinInput">Protein (g)</label>
+    <input type="text" id="proteinInput">
 
     <label for="notesInput">Notes</label>
     <textarea id="notesInput" rows="2"></textarea>
@@ -139,7 +140,7 @@ function onSearchInput() {
   }
 
   container.innerHTML = matches.map(function(name) {
-    return "<div class='result-item' onclick='loadFood(" + JSON.stringify(name) + ")'>" +
+    return "<div class='result-item' onclick='loadFood(" + jsStringLiteral(name) + ")'>" +
       "<div class='item-name'>" + escapeHtml(name) + "</div>" +
     "</div>";
   }).join("");
@@ -196,10 +197,10 @@ function saveChanges() {
     brand: document.getElementById("brandInput").value.trim(),
     servingSize: parseFloat(document.getElementById("servingSizeInput").value),
     servingUnit: document.getElementById("servingUnitSelect").value,
-    calories: parseFloat(document.getElementById("caloriesInput").value),
-    protein: parseFloat(document.getElementById("proteinInput").value),
-    fat: parseFloat(document.getElementById("fatInput").value),
-    carbs: parseFloat(document.getElementById("carbsInput").value),
+    calories: parseFloat(document.getElementById("caloriesInput").value) || 0,
+    protein: parseFloat(document.getElementById("proteinInput").value) || 0,
+    fat: parseFloat(document.getElementById("fatInput").value) || 0,
+    carbs: parseFloat(document.getElementById("carbsInput").value) || 0,
     fiber: parseFloat(document.getElementById("fiberInput").value) || 0,
     notes: document.getElementById("notesInput").value.trim()
   };
