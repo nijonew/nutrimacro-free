@@ -154,18 +154,18 @@
 
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./calc.js"></script>
 <script src="./app.js"></script>
 <script>
 
 let localExerciseNames = [];
 let sessionExercises = []; // { name, history: {sessions:[]}, sets: [{setNumber, weight, unit, reps, notes}] }
 
-window.addEventListener("load", function() {
+window.addEventListener("load", async function() {
 
-  if (!isConfigured()) {
-    window.location.href = "./index.html";
-    return;
-  }
+  const session = await requireAuth();
+  if (!session) return;
 
   document.getElementById("dateInput").valueAsDate = new Date();
   registerServiceWorker();
