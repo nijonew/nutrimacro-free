@@ -12,30 +12,25 @@
 <link rel="stylesheet" href="./style.css">
 <style>
 
-  .totals-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+  .date-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 10px;
     margin-bottom: 4px;
   }
 
-  .total-tile {
-    background: var(--bg);
-    border-radius: 10px;
-    padding: 12px 10px;
+  .date-nav button {
+    width: auto;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    color: var(--ink);
+  }
+
+  .date-nav input {
+    margin-bottom: 0;
     text-align: center;
-  }
-
-  .total-tile .value {
-    font-family: 'Manrope', sans-serif;
-    font-size: 20px;
-    font-weight: 800;
-  }
-
-  .total-tile .label {
-    font-size: 11px;
-    color: var(--ink-soft);
-    margin-top: 2px;
   }
 
   .exercise-group { margin-bottom: 16px; }
@@ -48,31 +43,15 @@
     margin: 0 0 6px;
   }
 
-  .set-line {
+  .set-row {
+    display: flex;
+    justify-content: space-between;
     font-size: 13px;
-    padding: 5px 0;
+    padding: 6px 0;
     border-bottom: 1px solid var(--line);
   }
 
-  .set-line:last-child { border-bottom: none; }
-
-  .date-nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 14px;
-  }
-
-  .date-nav button {
-    width: auto;
-    padding: 8px 12px;
-    background: var(--surface);
-    border: 1.5px solid var(--line);
-    color: var(--ink);
-  }
-
-  .date-nav input { margin-bottom: 0; text-align: center; }
+  .set-row:last-child { border-bottom: none; }
 
 </style>
 </head>
@@ -81,7 +60,7 @@
 <header>
   <div class="titles">
     <div class="eyebrow">Workouts</div>
-    <h1>History</h1>
+    <h1>Workout History</h1>
   </div>
   <a class="back" href="./workout.html">Log &rarr;</a>
 </header>
@@ -91,46 +70,39 @@
   <div class="card">
     <div class="date-nav">
       <button onclick="shiftDate(-1)">&larr;</button>
-      <input type="date" id="dateInput" onchange="loadDay()">
+      <input type="date" id="dateInput" onchange="onDateChange()">
       <button onclick="shiftDate(1)">&rarr;</button>
-    </div>
-
-    <div class="totals-grid">
-      <div class="total-tile">
-        <div class="value" id="totalSets">–</div>
-        <div class="label">Total Sets</div>
-      </div>
-      <div class="total-tile">
-        <div class="value" id="totalVolume">–</div>
-        <div class="label">Total Volume (wt &times; reps)</div>
-      </div>
     </div>
   </div>
 
   <div class="card">
-    <h2>Exercises</h2>
-    <div id="exerciseGroups">
+    <h2>Sets logged</h2>
+    <div id="entriesList">
       <div class="empty-state">Loading...</div>
     </div>
   </div>
 
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./calc.js"></script>
 <script src="./app.js"></script>
 <script>
 
-window.addEventListener("load", function() {
+window.addEventListener("load", async function() {
 
-  if (!isConfigured()) {
-    window.location.href = "./index.html";
-    return;
-  }
+  const session = await requireAuth();
+  if (!session) return;
 
   document.getElementById("dateInput").valueAsDate = new Date();
   registerServiceWorker();
   loadDay();
 
 });
+
+function onDateChange() {
+  loadDay();
+}
 
 function shiftDate(days) {
   const input = document.getElementById("dateInput");
@@ -143,22 +115,20 @@ function shiftDate(days) {
 function loadDay() {
 
   const date = document.getElementById("dateInput").value;
-
-  document.getElementById("exerciseGroups").innerHTML = "<div class='empty-state'>Loading...</div>";
-  document.getElementById("totalSets").textContent = "–";
-  document.getElementById("totalVolume").textContent = "–";
+  document.getElementById("entriesList").innerHTML = "<div class='empty-state'>Loading...</div>";
 
   apiGet("getWorkoutEntries", { date: date }).then(function(json) {
 
     if (!json.success) {
-      document.getElementById("exerciseGroups").innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
+      document.getElementById("entriesList").innerHTML =
+        "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
       return;
     }
 
     renderEntries(json.data.entries);
 
   }).catch(function(err) {
-    document.getElementById("exerciseGroups").innerHTML =
+    document.getElementById("entriesList").innerHTML =
       "<div class='empty-state'>Could not reach the backend: " + escapeHtml(err.message) + "</div>";
   });
 
@@ -166,21 +136,12 @@ function loadDay() {
 
 function renderEntries(entries) {
 
-  const container = document.getElementById("exerciseGroups");
+  const container = document.getElementById("entriesList");
 
   if (entries.length === 0) {
     container.innerHTML = "<div class='empty-state'>No workout logged for this day.</div>";
-    document.getElementById("totalSets").textContent = "0";
-    document.getElementById("totalVolume").textContent = "0";
     return;
   }
-
-  document.getElementById("totalSets").textContent = entries.length;
-
-  const totalVolume = entries.reduce(function(sum, e) {
-    return sum + ((Number(e.weight) || 0) * (Number(e.reps) || 0));
-  }, 0);
-  document.getElementById("totalVolume").textContent = Math.round(totalVolume);
 
   const groups = {};
   entries.forEach(function(e) {
@@ -188,18 +149,29 @@ function renderEntries(entries) {
     groups[e.exercise].push(e);
   });
 
-  container.innerHTML = Object.keys(groups).map(function(exercise) {
+  const workoutName = entries[0].workoutName;
+
+  let html = "";
+  if (workoutName) {
+    html += "<div class='helper' style='margin-top:0;'>" + escapeHtml(workoutName) + "</div>";
+  }
+
+  html += Object.keys(groups).map(function(exercise) {
 
     const sets = groups[exercise].sort(function(a, b) { return (a.setNumber || 0) - (b.setNumber || 0); });
 
     const setsHtml = sets.map(function(s) {
-      return "<div class='set-line'>Set " + s.setNumber + ": " + s.weight + s.unit + " &times; " + s.reps +
-        (s.notes ? " — " + escapeHtml(s.notes) : "") + "</div>";
+      return "<div class='set-row'>" +
+        "<span>Set " + s.setNumber + ": " + s.weight + s.unit + " &times; " + s.reps + "</span>" +
+        (s.notes ? "<span style='color:var(--ink-soft);'>" + escapeHtml(s.notes) + "</span>" : "") +
+      "</div>";
     }).join("");
 
     return "<div class='exercise-group'><h3>" + escapeHtml(exercise) + "</h3>" + setsHtml + "</div>";
 
   }).join("");
+
+  container.innerHTML = html;
 
 }
 

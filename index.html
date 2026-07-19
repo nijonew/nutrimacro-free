@@ -12,70 +12,48 @@
 <link rel="stylesheet" href="./style.css">
 <style>
 
-  .totals-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px;
-  }
-
-  .total-tile {
-    background: var(--bg);
-    border-radius: 10px;
-    padding: 12px 10px;
-    text-align: center;
-  }
-
-  .total-tile .value {
-    font-family: 'Manrope', sans-serif;
-    font-size: 20px;
-    font-weight: 800;
-  }
-
-  .total-tile .label {
-    font-size: 11px;
-    color: var(--ink-soft);
-    margin-top: 2px;
-  }
-
-  .total-tile.protein .value { color: var(--protein); }
-  .total-tile.carbs .value { color: var(--carbs); }
-  .total-tile.fat .value { color: var(--fat); }
-
-  .nav-grid {
+  .quick-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
   }
 
-  .nav-grid button { font-size: 13px; padding: 12px 10px; }
-
-  .gear {
-    text-decoration: none;
-    color: var(--ink-soft);
-    font-size: 20px;
-    padding: 4px;
-  }
-
-  .token-display {
+  .quick-link {
+    display: block;
     background: var(--bg);
-    border-radius: 8px;
-    padding: 12px;
-    font-family: monospace;
-    font-size: 13px;
-    word-break: break-all;
-    margin: 10px 0;
+    border-radius: 10px;
+    padding: 16px 12px;
+    text-align: center;
+    text-decoration: none;
+    color: var(--ink);
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
   }
 
-  .link-toggle {
-    background: none;
-    border: none;
-    color: var(--ink-soft);
-    text-decoration: underline;
+  .quick-link:active { opacity: 0.75; }
+
+  .auth-toggle-link {
+    display: block;
+    text-align: center;
+    margin-top: 14px;
     font-size: 13px;
-    padding: 0;
-    width: auto;
-    font-weight: 600;
-    margin-top: 8px;
+    color: var(--ink-soft);
+  }
+
+  .auth-toggle-link a {
+    color: var(--accent);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .forgot-link {
+    display: block;
+    text-align: center;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-decoration: none;
   }
 
 </style>
@@ -84,373 +62,165 @@
 
 <header>
   <div class="titles">
-    <div class="eyebrow" id="dateLabel">Today</div>
-    <h1>Nutrition Tracker</h1>
+    <div class="eyebrow">Nutrition Tracker</div>
+    <h1 id="headerTitle">Welcome</h1>
   </div>
-  <a class="gear" href="./settings.html" id="gearLink" style="display:none;" title="Account">&#9881;</a>
 </header>
 
 <main>
 
-  <!-- WELCOME / SIGN IN / SIGN UP (shown when no account token is stored on this device) -->
-  <div class="card" id="welcomeCard" style="display:none;">
-    <h2>Welcome</h2>
+  <!-- ============ LOGIN / SIGNUP (shown when not signed in) ============ -->
+  <div class="card" id="authCard" style="display:none;">
 
-    <div class="segmented">
-      <button id="signinTabBtn" class="active" onclick="showAuthTab('signin')">Sign In</button>
-      <button id="signupTabBtn" onclick="showAuthTab('signup')">Create Account</button>
+    <h2 id="authHeading">Sign In</h2>
+
+    <label for="emailInput">Email</label>
+    <input type="text" id="emailInput" placeholder="you@example.com" autocomplete="username">
+
+    <label for="passwordInput">Password</label>
+    <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password">
+
+    <button id="authSubmitBtn" onclick="submitAuth()">Sign In</button>
+    <div class="result-box" id="authResultBox"></div>
+
+    <div class="auth-toggle-link" id="authToggleText">
+      Don't have an account? <a onclick="setAuthMode('signup')">Create one</a>
     </div>
 
-    <div id="signinTab">
-      <div class="helper" style="margin-top:0;">Sign in with your username and password.</div>
-      <label for="loginUsername">Username</label>
-      <input type="text" id="loginUsername" placeholder="Your username">
-      <label for="loginPassword">Password</label>
-      <input type="password" id="loginPassword" placeholder="Your password">
-      <button onclick="loginWithPassword()">Sign In</button>
-      <div class="result-box" id="signinResultBox"></div>
-
-      <button class="link-toggle" onclick="toggleRecovery()">Forgot access?</button>
-      <div id="recoveryForm" style="display:none; margin-top:10px;">
-        <label for="recoveryInput">Username or Email</label>
-        <input type="text" id="recoveryInput" placeholder="Enter username or email">
-        <button class="secondary" onclick="recoverAccount()">Email Me My Token</button>
-        <div class="result-box" id="recoveryResultBox"></div>
-      </div>
-
-      <button class="link-toggle" onclick="toggleExistingToken()">Have a token instead? Sign in with it</button>
-      <div id="existingTokenForm" style="display:none; margin-top:10px;">
-        <label for="existingToken">Your Token</label>
-        <input type="text" id="existingToken" placeholder="Paste your token">
-        <button class="secondary" onclick="signInWithToken()">Sign In with Token</button>
-      </div>
-    </div>
-
-    <div id="signupTab" style="display:none;">
-      <div class="helper" style="margin-top:0;">New here? Create your account. Your data stays private to you.</div>
-      <label for="signupName">Your Name</label>
-      <input type="text" id="signupName" placeholder="e.g. Jamie">
-      <label for="signupUsername">Choose a Username</label>
-      <input type="text" id="signupUsername" placeholder="e.g. jamie23">
-      <label for="signupPassword">Choose a Password</label>
-      <input type="password" id="signupPassword" placeholder="At least 6 characters">
-      <label for="signupEmail">Email</label>
-      <input type="text" id="signupEmail" placeholder="you@example.com">
-      <button onclick="createAccount()">Create My Account</button>
-      <div class="result-box" id="signupResultBox"></div>
-    </div>
+    <a class="forgot-link" id="forgotLink" onclick="forgotPassword()">Forgot your password?</a>
 
   </div>
 
-  <!-- ACCOUNT CREATED CONFIRMATION -->
-  <div class="card" id="tokenConfirmCard" style="display:none;">
-    <h2>Account created!</h2>
-    <div class="helper" style="margin-top:0;">Save this token somewhere safe — you'll need it to sign in on another device. It won't be shown again automatically (you can always find it in Settings).</div>
-    <div class="token-display" id="newTokenDisplay"></div>
-    <button onclick="copyNewToken()">Copy Token</button>
-    <div style="height:10px;"></div>
-    <button class="secondary" onclick="continueToDashboard()">Continue to Dashboard</button>
-  </div>
-
-  <!-- DASHBOARD (shown once signed in) -->
-  <div id="mainContent" style="display:none;">
-
-    <div class="card">
-      <h2 id="greeting">Today so far</h2>
-      <div class="totals-grid">
-        <div class="total-tile">
-          <div class="value" id="totalCalories">–</div>
-          <div class="label">Calories</div>
-        </div>
-        <div class="total-tile protein">
-          <div class="pct-label" id="pctProtein"></div>
-          <div class="value" id="totalProtein">–</div>
-          <div class="label">Protein (g)</div>
-        </div>
-        <div class="total-tile carbs">
-          <div class="pct-label" id="pctCarbs"></div>
-          <div class="value" id="totalCarbs">–</div>
-          <div class="label">Carbs (g)</div>
-        </div>
-        <div class="total-tile fat">
-          <div class="pct-label" id="pctFat"></div>
-          <div class="value" id="totalFat">–</div>
-          <div class="label">Fat (g)</div>
-        </div>
-        <div class="total-tile">
-          <div class="value" id="totalFiber">–</div>
-          <div class="label">Fiber (g)</div>
-        </div>
-        <div class="total-tile">
-          <div class="value" id="totalNetCarbs">–</div>
-          <div class="label">Net Carbs (g)</div>
-        </div>
-      </div>
-      <div style="height:12px;"></div>
-      <a href="./today.html" style="text-decoration:none;">
-        <button class="secondary">View Full Day</button>
-      </a>
-    </div>
+  <!-- ============ DASHBOARD (shown when signed in) ============ -->
+  <div id="dashboardArea" style="display:none;">
 
     <div class="card">
       <h2>Quick actions</h2>
-      <div class="nav-grid">
-        <a href="./log.html" style="text-decoration:none;"><button>Log Food/Recipe</button></a>
-        <a href="./recipe.html" style="text-decoration:none;"><button class="secondary">Build a Recipe</button></a>
-        <a href="./add-food.html" style="text-decoration:none;"><button class="secondary">Add Food Manually</button></a>
-        <a href="./edit-food.html" style="text-decoration:none;"><button class="secondary">Edit a Food</button></a>
+      <div class="quick-grid">
+        <a class="quick-link" href="./log.html">Log Food</a>
+        <a class="quick-link" href="./today.html">Today</a>
+        <a class="quick-link" href="./recipe.html">Build a Recipe</a>
+        <a class="quick-link" href="./workout.html">Log Workout</a>
+        <a class="quick-link" href="./add-food.html">Add Food</a>
+        <a class="quick-link" href="./workout-history.html">Workout History</a>
       </div>
     </div>
 
     <div class="card">
-      <h2>Workouts</h2>
-      <div class="nav-grid">
-        <a href="./workout.html" style="text-decoration:none;"><button>Log Workout</button></a>
-        <a href="./workout-history.html" style="text-decoration:none;"><button class="secondary">Workout History</button></a>
-        <a href="./workout-templates.html" style="text-decoration:none;"><button class="secondary">Build a Template</button></a>
-      </div>
+      <button class="secondary" onclick="handleLogOut()">Sign Out</button>
     </div>
 
   </div>
 
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./calc.js"></script>
 <script src="./app.js"></script>
 <script>
 
-let pendingNewToken = "";
+let authMode = "login"; // "login" or "signup"
 
-window.addEventListener("load", function() {
+window.addEventListener("load", async function() {
 
   registerServiceWorker();
 
-  // Backward-compatible support for the old ?apiToken= link trick,
-  // in case you still have one saved somewhere.
-  const params = new URLSearchParams(window.location.search);
-  const paramToken = params.get("apiToken");
-  if (paramToken) {
-    saveToken(paramToken);
-    window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
-  }
+  const { data } = await sb.auth.getSession();
 
-  if (!isConfigured()) {
-    document.getElementById("welcomeCard").style.display = "block";
-    return;
+  if (data.session) {
+    showDashboard();
+  } else {
+    showAuthForm();
   }
-
-  showDashboard();
 
 });
 
-function showAuthTab(tab) {
-
-  document.getElementById("signinTabBtn").className = (tab === "signin") ? "active" : "";
-  document.getElementById("signupTabBtn").className = (tab === "signup") ? "active" : "";
-
-  document.getElementById("signinTab").style.display = (tab === "signin") ? "block" : "none";
-  document.getElementById("signupTab").style.display = (tab === "signup") ? "block" : "none";
-
-}
-
-function signInWithToken() {
-
-  const token = document.getElementById("existingToken").value.trim();
-  const box = document.getElementById("signinResultBox");
-
-  if (!token) {
-    box.className = "result-box error";
-    box.textContent = "Enter your token first.";
-    return;
-  }
-
-  box.className = "result-box ok";
-  box.textContent = "Signing in...";
-
-  saveToken(token);
-
-  apiGet("ping").then(function(json) {
-    if (!json.success) {
-      box.className = "result-box error";
-      box.textContent = json.error;
-      clearToken();
-      return;
-    }
-    document.getElementById("welcomeCard").style.display = "none";
-    showDashboard();
-  }).catch(function(err) {
-    box.className = "result-box error";
-    box.textContent = "Could not reach the backend: " + err.message;
-    clearToken();
-  });
-
-}
-
-function loginWithPassword() {
-
-  const username = document.getElementById("loginUsername").value.trim();
-  const password = document.getElementById("loginPassword").value;
-  const box = document.getElementById("signinResultBox");
-
-  if (!username || !password) {
-    box.className = "result-box error";
-    box.textContent = "Enter both username and password.";
-    return;
-  }
-
-  box.className = "result-box ok";
-  box.textContent = "Signing in...";
-
-  apiPost("login", { username: username, password: password }).then(function(json) {
-
-    if (!json.success) {
-      box.className = "result-box error";
-      box.textContent = json.error;
-      return;
-    }
-
-    saveToken(json.data.token);
-    document.getElementById("welcomeCard").style.display = "none";
-    showDashboard();
-
-  }).catch(function(err) {
-    box.className = "result-box error";
-    box.textContent = "Could not reach the backend: " + err.message;
-  });
-
-}
-
-function toggleRecovery() {
-  const form = document.getElementById("recoveryForm");
-  form.style.display = form.style.display === "none" ? "block" : "none";
-}
-
-function recoverAccount() {
-
-  const input = document.getElementById("recoveryInput").value.trim();
-  const box = document.getElementById("recoveryResultBox");
-
-  if (!input) {
-    box.className = "result-box error";
-    box.textContent = "Enter your username or email.";
-    return;
-  }
-
-  box.className = "result-box ok";
-  box.textContent = "Sending...";
-
-  apiPost("recoverAccount", { usernameOrEmail: input }).then(function(json) {
-    if (json.success) {
-      box.className = "result-box ok";
-      box.textContent = "Check your email for your sign-in token.";
-    } else {
-      box.className = "result-box error";
-      box.textContent = json.error;
-    }
-  }).catch(function(err) {
-    box.className = "result-box error";
-    box.textContent = "Could not reach the backend: " + err.message;
-  });
-
-}
-
-function toggleExistingToken() {
-  const form = document.getElementById("existingTokenForm");
-  form.style.display = form.style.display === "none" ? "block" : "none";
-}
-
-function createAccount() {
-
-  const name = document.getElementById("signupName").value.trim();
-  const username = document.getElementById("signupUsername").value.trim();
-  const password = document.getElementById("signupPassword").value;
-  const email = document.getElementById("signupEmail").value.trim();
-  const box = document.getElementById("signupResultBox");
-
-  if (!name || !username || !password || !email) {
-    box.className = "result-box error";
-    box.textContent = "Fill in all fields.";
-    return;
-  }
-
-  box.className = "result-box ok";
-  box.textContent = "Creating account...";
-
-  apiPost("createAccount", { name: name, username: username, password: password, email: email }).then(function(json) {
-
-    if (!json.success) {
-      box.className = "result-box error";
-      box.textContent = json.error;
-      return;
-    }
-
-    saveToken(json.data.token);
-    pendingNewToken = json.data.token;
-
-    document.getElementById("welcomeCard").style.display = "none";
-    document.getElementById("newTokenDisplay").textContent = json.data.token;
-    document.getElementById("tokenConfirmCard").style.display = "block";
-
-  }).catch(function(err) {
-    box.className = "result-box error";
-    box.textContent = "Could not reach the backend: " + err.message;
-  });
-
-}
-
-function copyNewToken() {
-  navigator.clipboard.writeText(pendingNewToken).then(function() {
-    alert("Token copied.");
-  }).catch(function() {
-    alert("Could not copy automatically — please select and copy the token manually.");
-  });
-}
-
-function continueToDashboard() {
-  document.getElementById("tokenConfirmCard").style.display = "none";
-  showDashboard();
-}
-
 function showDashboard() {
+  document.getElementById("headerTitle").textContent = "Home";
+  document.getElementById("authCard").style.display = "none";
+  document.getElementById("dashboardArea").style.display = "block";
+}
 
-  document.getElementById("gearLink").style.display = "inline";
-  document.getElementById("mainContent").style.display = "block";
+function showAuthForm() {
+  document.getElementById("headerTitle").textContent = "Welcome";
+  document.getElementById("authCard").style.display = "block";
+  document.getElementById("dashboardArea").style.display = "none";
+}
 
-  apiGet("ping").then(function(json) {
-    if (json.success && json.data.user) {
-      document.getElementById("greeting").textContent = "Hi " + json.data.user + " — today so far";
-    }
-  }).catch(function() {});
+function setAuthMode(mode) {
 
-  loadToday();
+  authMode = mode;
+  const heading = document.getElementById("authHeading");
+  const submitBtn = document.getElementById("authSubmitBtn");
+  const toggleText = document.getElementById("authToggleText");
+  const forgotLink = document.getElementById("forgotLink");
+
+  if (mode === "signup") {
+    heading.textContent = "Create Account";
+    submitBtn.textContent = "Create Account";
+    toggleText.innerHTML = "Already have an account? <a onclick=\"setAuthMode('login')\">Sign in</a>";
+    forgotLink.style.display = "none";
+  } else {
+    heading.textContent = "Sign In";
+    submitBtn.textContent = "Sign In";
+    toggleText.innerHTML = "Don't have an account? <a onclick=\"setAuthMode('signup')\">Create one</a>";
+    forgotLink.style.display = "block";
+  }
+
+  document.getElementById("authResultBox").className = "result-box";
+  document.getElementById("authResultBox").textContent = "";
 
 }
 
-function loadToday() {
+function submitAuth() {
 
-  const today = new Date().toISOString().slice(0, 10);
+  const email = document.getElementById("emailInput").value.trim();
+  const password = document.getElementById("passwordInput").value;
 
-  apiGet("getDailyLogEntries", { date: today }).then(function(json) {
-    if (json.success) {
-      setTotals(json.data.totals);
+  if (!email) { showAuthResult(false, "Enter your email."); return; }
+  if (!password || password.length < 6) { showAuthResult(false, "Password must be at least 6 characters."); return; }
+
+  showAuthResult(true, authMode === "signup" ? "Creating account..." : "Signing in...");
+
+  const action = (authMode === "signup") ? signUp(email, password) : logIn(email, password);
+
+  action.then(function() {
+
+    if (authMode === "signup") {
+      showAuthResult(true, "Account created. Check your email if confirmation is required, otherwise you're signed in.");
     }
+
+    showDashboard();
+
   }).catch(function(err) {
-    console.log("Could not load today's totals:", err.message);
+    showAuthResult(false, err.message);
   });
 
 }
 
-function setTotals(totals) {
-  document.getElementById("totalCalories").textContent = totals.calories;
-  document.getElementById("totalProtein").textContent = totals.protein;
-  document.getElementById("totalCarbs").textContent = totals.carbs;
-  document.getElementById("totalFat").textContent = totals.fat;
-  document.getElementById("totalFiber").textContent = totals.fiber;
-  document.getElementById("totalNetCarbs").textContent = totals.netCarbs;
+function forgotPassword() {
 
-  const pct = calculateMacroPercents(totals);
-  document.getElementById("pctProtein").textContent = totals.calories ? pct.protein + "%" : "";
-  document.getElementById("pctCarbs").textContent = totals.calories ? pct.carbs + "%" : "";
-  document.getElementById("pctFat").textContent = totals.calories ? pct.fat + "%" : "";
+  const email = document.getElementById("emailInput").value.trim();
+  if (!email) { showAuthResult(false, "Enter your email above first, then tap this link again."); return; }
+
+  sendPasswordReset(email).then(function() {
+    showAuthResult(true, "Password reset email sent to " + email + ".");
+  }).catch(function(err) {
+    showAuthResult(false, err.message);
+  });
+
+}
+
+function handleLogOut() {
+  logOut().then(function() {
+    showAuthForm();
+  });
+}
+
+function showAuthResult(ok, message) {
+  const box = document.getElementById("authResultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
 }
 
 </script>

@@ -3,26 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Account</title>
+<title>Settings</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#1C2530">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./style.css">
-<style>
-
-  .token-display {
-    background: var(--bg);
-    border-radius: 8px;
-    padding: 12px;
-    font-family: monospace;
-    font-size: 13px;
-    word-break: break-all;
-    margin: 10px 0;
-  }
-
-</style>
 </head>
 <body>
 
@@ -36,193 +23,223 @@
 
 <main>
 
-  <div class="card" id="notSignedInCard" style="display:none;">
-    <h2>Not signed in</h2>
-    <div class="helper">Go to the home screen to create an account or sign in.</div>
-    <a href="./index.html" style="text-decoration:none;"><button>Go to Home</button></a>
-  </div>
+  <div class="card">
+    <h2>Profile</h2>
 
-  <div id="signedInContent" style="display:none;">
-
-    <div class="card">
-      <h2>Signed in as</h2>
-      <div class="status-row" style="margin-bottom:6px;">
-        <div class="dot" id="statusDot"></div>
-        <span id="statusText">Checking...</span>
+    <div class="row-2">
+      <div>
+        <label for="currentWeightInput">Current Weight</label>
+        <input type="text" id="currentWeightInput" placeholder="e.g. 210">
+      </div>
+      <div>
+        <label for="heightInput">Height (in)</label>
+        <input type="text" id="heightInput" placeholder="e.g. 70">
       </div>
     </div>
 
-    <div class="card">
-      <h2>Sign-in credentials</h2>
-      <div class="helper" style="margin-top:0;">Set or update your username, password, and email — useful if your account currently only has a token.</div>
-      <label for="credUsername">Username</label>
-      <input type="text" id="credUsername" placeholder="Choose a username">
-      <label for="credPassword">New Password</label>
-      <input type="password" id="credPassword" placeholder="Leave blank to keep current password">
-      <label for="credEmail">Email</label>
-      <input type="text" id="credEmail" placeholder="you@example.com">
-      <button onclick="saveCredentials()">Save Credentials</button>
-      <div class="result-box" id="credResultBox"></div>
+    <div class="row-2">
+      <div>
+        <label for="startingWeightInput">Starting Weight</label>
+        <input type="text" id="startingWeightInput">
+      </div>
+      <div>
+        <label for="goalWeightInput">Goal Weight</label>
+        <input type="text" id="goalWeightInput">
+      </div>
     </div>
 
-    <div class="card">
-      <h2>Reports</h2>
-      <div class="helper" style="margin-top:0;">Email yourself a PDF report of your nutrition and/or workout history.</div>
-      <a href="./report.html" style="text-decoration:none;"><button class="secondary">Go to Reports</button></a>
+    <div class="row-2">
+      <div>
+        <label for="birthDateInput">Birth Date</label>
+        <input type="date" id="birthDateInput">
+      </div>
+      <div>
+        <label for="sexSelect">Sex</label>
+        <select id="sexSelect">
+          <option value="">—</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+        </select>
+      </div>
     </div>
-
-    <div class="card">
-      <h2>Your account token</h2>
-      <div class="helper" style="margin-top:0;">Use this to sign in on another device. Keep it private — anyone with this token can see and edit your data.</div>
-      <div class="token-display" id="tokenDisplay"></div>
-      <button onclick="copyToken()">Copy Token</button>
-    </div>
-
-    <div class="card">
-      <h2>Housekeeping</h2>
-      <button class="secondary" onclick="recalculateRecipes()">Recalculate My Recipes</button>
-      <div style="height:10px;"></div>
-      <button class="secondary" onclick="refreshAchievements()">Refresh My Achievements</button>
-      <div class="result-box" id="actionResultBox"></div>
-    </div>
-
-    <div class="card">
-      <h2>Sign out</h2>
-      <div class="helper" style="margin-top:0;">Removes your token from this device only. Your data stays safe — sign back in anytime with your token.</div>
-      <button class="secondary" onclick="signOut()">Sign Out</button>
-    </div>
-
   </div>
 
   <div class="card">
-    <h2>Macro key</h2>
-    <div class="helper">Used consistently across the app.</div>
-    <div class="macro-key">
-      <span><div class="swatch protein"></div>Protein</span>
-      <span><div class="swatch carbs"></div>Carbs</span>
-      <span><div class="swatch fat"></div>Fat</span>
+    <h2>Daily Goals</h2>
+
+    <div class="row-2">
+      <div>
+        <label for="goalCaloriesInput">Calories</label>
+        <input type="text" id="goalCaloriesInput">
+      </div>
+      <div>
+        <label for="goalProteinInput">Protein (g)</label>
+        <input type="text" id="goalProteinInput">
+      </div>
     </div>
+
+    <div class="row-2">
+      <div>
+        <label for="goalFatInput">Fat (g)</label>
+        <input type="text" id="goalFatInput">
+      </div>
+      <div>
+        <label for="goalCarbsInput">Carbs (g)</label>
+        <input type="text" id="goalCarbsInput">
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div>
+        <label for="goalFiberInput">Fiber (g)</label>
+        <input type="text" id="goalFiberInput">
+      </div>
+      <div>
+        <label for="goalWaterInput">Water (oz)</label>
+        <input type="text" id="goalWaterInput">
+      </div>
+    </div>
+
+    <button onclick="saveSettings()">Save Settings</button>
+    <div class="result-box" id="settingsResultBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>Account</h2>
+
+    <label for="emailInput">Email</label>
+    <input type="text" id="emailInput" placeholder="you@example.com">
+    <button class="secondary" onclick="updateEmail()">Update Email</button>
+
+    <label for="newPasswordInput" style="margin-top:16px;">New Password</label>
+    <input type="password" id="newPasswordInput" placeholder="At least 6 characters">
+    <button class="secondary" onclick="updatePassword()">Update Password</button>
+
+    <div class="result-box" id="accountResultBox"></div>
   </div>
 
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./calc.js"></script>
 <script src="./app.js"></script>
 <script>
 
-window.addEventListener("load", function() {
+window.addEventListener("load", async function() {
+
+  const session = await requireAuth();
+  if (!session) return;
 
   registerServiceWorker();
+  document.getElementById("emailInput").value = session.user.email || "";
 
-  if (!isConfigured()) {
-    document.getElementById("notSignedInCard").style.display = "block";
-    return;
-  }
-
-  document.getElementById("signedInContent").style.display = "block";
-  document.getElementById("tokenDisplay").textContent = loadToken();
-
-  apiGet("ping").then(function(json) {
-    const dot = document.getElementById("statusDot");
-    const text = document.getElementById("statusText");
-    if (json.success) {
-      dot.className = "dot ok";
-      text.textContent = json.data.user;
-      if (json.data.email) {
-        document.getElementById("credEmail").value = json.data.email;
-      }
-    } else {
-      dot.className = "dot error";
-      text.textContent = "Could not verify: " + json.error;
-    }
-  }).catch(function(err) {
-    document.getElementById("statusDot").className = "dot error";
-    document.getElementById("statusText").textContent = "Could not reach the backend.";
-  });
+  loadSettings();
 
 });
 
-function saveCredentials() {
+async function loadSettings() {
 
-  const username = document.getElementById("credUsername").value.trim();
-  const password = document.getElementById("credPassword").value;
-  const email = document.getElementById("credEmail").value.trim();
-  const box = document.getElementById("credResultBox");
+  const userId = await getCurrentUserId();
+  const { data, error } = await sb.from("user_settings").select("*").eq("user_id", userId).maybeSingle();
 
-  if (!username && !password && !email) {
-    box.className = "result-box error";
-    box.textContent = "Enter at least one field to update.";
+  if (error) {
+    showSettingsResult(false, error.message);
     return;
   }
 
-  if (password && password.length < 6) {
-    box.className = "result-box error";
-    box.textContent = "Password must be at least 6 characters.";
+  if (!data) return; // no row yet — form stays blank, first save will create it
+
+  document.getElementById("currentWeightInput").value = data.current_weight || "";
+  document.getElementById("heightInput").value = data.height || "";
+  document.getElementById("startingWeightInput").value = data.starting_weight || "";
+  document.getElementById("goalWeightInput").value = data.goal_weight || "";
+  document.getElementById("birthDateInput").value = data.birth_date || "";
+  document.getElementById("sexSelect").value = data.sex || "";
+  document.getElementById("goalCaloriesInput").value = data.goal_calories || "";
+  document.getElementById("goalProteinInput").value = data.goal_protein || "";
+  document.getElementById("goalFatInput").value = data.goal_fat || "";
+  document.getElementById("goalCarbsInput").value = data.goal_carbs || "";
+  document.getElementById("goalFiberInput").value = data.goal_fiber || "";
+  document.getElementById("goalWaterInput").value = data.goal_water || "";
+
+}
+
+async function saveSettings() {
+
+  const userId = await getCurrentUserId();
+
+  const record = {
+    user_id: userId,
+    current_weight: parseFloat(document.getElementById("currentWeightInput").value) || null,
+    height: parseFloat(document.getElementById("heightInput").value) || null,
+    starting_weight: parseFloat(document.getElementById("startingWeightInput").value) || null,
+    goal_weight: parseFloat(document.getElementById("goalWeightInput").value) || null,
+    birth_date: document.getElementById("birthDateInput").value || null,
+    sex: document.getElementById("sexSelect").value || null,
+    goal_calories: parseFloat(document.getElementById("goalCaloriesInput").value) || null,
+    goal_protein: parseFloat(document.getElementById("goalProteinInput").value) || null,
+    goal_fat: parseFloat(document.getElementById("goalFatInput").value) || null,
+    goal_carbs: parseFloat(document.getElementById("goalCarbsInput").value) || null,
+    goal_fiber: parseFloat(document.getElementById("goalFiberInput").value) || null,
+    goal_water: parseFloat(document.getElementById("goalWaterInput").value) || null
+  };
+
+  showSettingsResult(true, "Saving...");
+
+  const { error } = await sb.from("user_settings").upsert(record, { onConflict: "user_id" });
+
+  if (error) {
+    showSettingsResult(false, error.message);
     return;
   }
 
-  box.className = "result-box ok";
-  box.textContent = "Saving...";
-
-  apiPost("setCredentials", { username: username, password: password, email: email }).then(function(json) {
-    if (json.success) {
-      box.className = "result-box ok";
-      box.textContent = "Saved. You can now sign in with your username and password.";
-      document.getElementById("credPassword").value = "";
-    } else {
-      box.className = "result-box error";
-      box.textContent = json.error;
-    }
-  }).catch(function(err) {
-    box.className = "result-box error";
-    box.textContent = "Could not reach the backend: " + err.message;
-  });
+  showSettingsResult(true, "Settings saved.");
 
 }
 
-function copyToken() {
-  navigator.clipboard.writeText(loadToken()).then(function() {
-    alert("Token copied.");
-  }).catch(function() {
-    alert("Could not copy automatically — please select and copy the token manually.");
-  });
+async function updateEmail() {
+
+  const email = document.getElementById("emailInput").value.trim();
+  if (!email) { showAccountResult(false, "Enter an email address."); return; }
+
+  const { error } = await sb.auth.updateUser({ email: email });
+
+  if (error) {
+    showAccountResult(false, error.message);
+    return;
+  }
+
+  showAccountResult(true, "Confirmation email sent — check your inbox to finish the change.");
+
 }
 
-function recalculateRecipes() {
-  showActionResult(true, "Recalculating...");
-  apiPost("recalculateMyRecipes", {}).then(function(json) {
-    if (json.success) {
-      showActionResult(true, "Recipes recalculated.");
-    } else {
-      showActionResult(false, json.error);
-    }
-  }).catch(function(err) {
-    showActionResult(false, "Could not reach the backend: " + err.message);
-  });
+async function updatePassword() {
+
+  const password = document.getElementById("newPasswordInput").value;
+  if (!password || password.length < 6) { showAccountResult(false, "Password must be at least 6 characters."); return; }
+
+  const { error } = await sb.auth.updateUser({ password: password });
+
+  if (error) {
+    showAccountResult(false, error.message);
+    return;
+  }
+
+  document.getElementById("newPasswordInput").value = "";
+  showAccountResult(true, "Password updated.");
+
 }
 
-function refreshAchievements() {
-  showActionResult(true, "Refreshing...");
-  apiPost("refreshMyAchievements", {}).then(function(json) {
-    if (json.success) {
-      showActionResult(true, "Achievements refreshed.");
-    } else {
-      showActionResult(false, json.error);
-    }
-  }).catch(function(err) {
-    showActionResult(false, "Could not reach the backend: " + err.message);
-  });
-}
-
-function showActionResult(ok, message) {
-  const box = document.getElementById("actionResultBox");
+function showSettingsResult(ok, message) {
+  const box = document.getElementById("settingsResultBox");
   box.className = "result-box " + (ok ? "ok" : "error");
   box.textContent = message;
 }
 
-function signOut() {
-  if (!confirm("Sign out of this device? You can sign back in anytime with your token.")) return;
-  clearToken();
-  window.location.href = "./index.html";
+function showAccountResult(ok, message) {
+  const box = document.getElementById("accountResultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
 }
 
 </script>
