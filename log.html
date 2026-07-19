@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Log Food or Recipe</title>
+<title>Log Food</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#1C2530">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,17 +11,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./style.css">
 <style>
-
-  .result-item.checkable {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .result-item.checkable input[type="checkbox"] {
-    width: auto;
-    margin: 0;
-  }
 
   .cart-row {
     display: flex;
@@ -38,18 +27,17 @@
     flex-basis: 100%;
     font-size: 14px;
     font-weight: 600;
-    margin-bottom: 4px;
   }
 
   .cart-row input, .cart-row select {
     margin-bottom: 0;
-    width: 68px;
     padding: 8px;
     font-size: 13px;
   }
 
-  .cart-row select.unit-select { width: 78px; }
-  .cart-row select.meal-select { width: 90px; }
+  .cart-row .cart-amount { width: 70px; }
+  .cart-row .cart-unit { width: 78px; }
+  .cart-row .cart-meal { flex: 1; min-width: 110px; }
 
   .remove-btn {
     width: auto;
@@ -61,44 +49,72 @@
     line-height: 1;
   }
 
+  .result-item.checkable {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .result-item.checkable input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+  }
+
+  .create-shortcut {
+    display: block;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    text-decoration: none;
+    margin-top: 4px;
+  }
+
 </style>
 </head>
 <body>
 
 <header>
   <div class="titles">
-    <div class="eyebrow">Daily Log</div>
-    <h1>Log an Entry</h1>
+    <div class="eyebrow">Nutrition</div>
+    <h1>Log Food or Recipe</h1>
   </div>
   <a class="back" href="./today.html">Today &rarr;</a>
 </header>
 
 <main>
 
-  <!-- SEARCH: local first, USDA fallback -->
   <div class="card">
-    <h2>Find foods</h2>
+    <h2>When</h2>
+    <div class="row-2">
+      <div>
+        <label for="dateInput">Date</label>
+        <input type="date" id="dateInput">
+      </div>
+      <div>
+        <label for="defaultMealSelect">Default Meal</label>
+        <select id="defaultMealSelect">
+          <option>Breakfast</option>
+          <option>Lunch</option>
+          <option>Dinner</option>
+          <option>Snack</option>
+        </select>
+      </div>
+    </div>
+    <div class="helper">Applies to newly added items. Each item below can still be changed individually.</div>
+  </div>
 
+  <div class="card">
+    <h2>What are you logging?</h2>
     <div class="segmented">
-      <button id="typeFoodBtn" class="active" onclick="setType('Food')">Food</button>
+      <button class="active" id="typeFoodBtn" onclick="setType('Food')">Food</button>
       <button id="typeRecipeBtn" onclick="setType('Recipe')">Recipe</button>
     </div>
 
-    <a href="./add-food.html" id="createFoodShortcut" style="text-decoration:none; display:block; margin-bottom:12px;">
-      <button class="secondary">+ Create a New Food</button>
-    </a>
-    <a href="./recipe.html" id="createRecipeShortcut" style="text-decoration:none; display:none; margin-bottom:12px;">
-      <button class="secondary">+ Create a New Recipe</button>
-    </a>
-
-    <label for="searchInput">Search</label>
-    <input type="text" id="searchInput" placeholder="Start typing a name..." oninput="onSearchInput()" onkeypress="if(event.key==='Enter'){event.preventDefault();onEnterPressed();}">
-
-    <div id="localResultsWrap">
-      <div class="helper" style="margin-top:0;">Your foods</div>
-      <div class="result-list" id="localResults"></div>
-      <button class="secondary" id="addSelectedBtn" style="display:none; margin-top:0; margin-bottom:12px;" onclick="addSelectedToCart()">Add to Meal</button>
-    </div>
+    <label for="itemSearch">Search</label>
+    <input type="text" id="itemSearch" placeholder="Start typing..." oninput="onItemSearch()" onkeypress="if(event.key==='Enter'){event.preventDefault();onItemEnterPressed();}">
+    <div class="result-list" id="itemResults" style="display:none;"></div>
+    <button class="secondary" id="addSelectedBtn" style="display:none; margin-top:10px;" onclick="addSelectedItems()">Add Selected</button>
 
     <div id="usdaSection" style="display:none;">
       <div class="helper">USDA database (tap one to import &amp; add)</div>
@@ -109,44 +125,25 @@
       Search USDA for &ldquo;<span id="usdaQueryLabel"></span>&rdquo;
     </button>
 
+    <a class="create-shortcut" id="createShortcut" href="./add-food.html">+ Create a New Food</a>
   </div>
 
-  <!-- CART -->
   <div class="card" id="cartCard" style="display:none;">
-    <h2>Your Meal (<span id="cartCount">0</span>)</h2>
+    <h2>Items to log (<span id="cartCount">0</span>)</h2>
     <div id="cartList"></div>
   </div>
 
-  <!-- LOG DETAILS (shared across the whole cart) -->
-  <div class="card" id="logDetailsCard" style="display:none;">
-    <h2>Log details</h2>
-
-    <div class="row-2">
-      <div>
-        <label for="dateInput">Date</label>
-        <input type="date" id="dateInput">
-      </div>
-      <div>
-        <label for="mealInput">Default Meal (for new items)</label>
-        <select id="mealInput">
-          <option>Breakfast</option>
-          <option>Lunch</option>
-          <option>Dinner</option>
-          <option>Snack</option>
-        </select>
-      </div>
-    </div>
-
-    <label for="notesInput">Notes (optional, applied to all items)</label>
+  <div class="card">
+    <label for="notesInput">Notes (optional, applies to this batch)</label>
     <textarea id="notesInput" rows="2"></textarea>
-
-    <button onclick="submitCart()">Log Meal</button>
-    <div class="result-box" id="logResultBox"></div>
-
+    <button onclick="logMeal()">Log Meal</button>
+    <div class="result-box" id="resultBox"></div>
   </div>
 
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./calc.js"></script>
 <script src="./app.js"></script>
 <script>
 
@@ -154,23 +151,15 @@ let currentType = "Food";
 let localFoodNames = [];
 let localRecipeNames = [];
 let selectedNames = new Set();
-let cart = []; // { type, name, amount, unit }
+let cart = []; // { name, type, amount, unit, meal }
 
-window.addEventListener("load", function() {
+window.addEventListener("load", async function() {
 
-  if (!isConfigured()) {
-    window.location.href = "./index.html";
-    return;
-  }
+  const session = await requireAuth();
+  if (!session) return;
 
   document.getElementById("dateInput").valueAsDate = new Date();
-
   registerServiceWorker();
-  loadLocalNames();
-
-});
-
-function loadLocalNames() {
 
   apiGet("getFoodNames").then(function(json) {
     if (json.success) localFoodNames = json.data;
@@ -180,75 +169,75 @@ function loadLocalNames() {
     if (json.success) localRecipeNames = json.data;
   });
 
-}
+});
 
 function setType(type) {
 
   currentType = type;
 
-  document.getElementById("typeFoodBtn").className = (type === "Food") ? "active" : "";
-  document.getElementById("typeRecipeBtn").className = (type === "Recipe") ? "active" : "";
+  document.getElementById("typeFoodBtn").classList.toggle("active", type === "Food");
+  document.getElementById("typeRecipeBtn").classList.toggle("active", type === "Recipe");
+  document.getElementById("createShortcut").href = (type === "Food") ? "./add-food.html" : "./recipe.html";
+  document.getElementById("createShortcut").textContent = (type === "Food") ? "+ Create a New Food" : "+ Create a New Recipe";
 
-  document.getElementById("createFoodShortcut").style.display = (type === "Food") ? "block" : "none";
-  document.getElementById("createRecipeShortcut").style.display = (type === "Recipe") ? "block" : "none";
-
-  document.getElementById("searchUsdaBtn").style.display = "none";
+  document.getElementById("itemSearch").value = "";
+  document.getElementById("itemResults").style.display = "none";
   document.getElementById("usdaSection").style.display = "none";
-
-  onSearchInput();
+  document.getElementById("searchUsdaBtn").style.display = "none";
+  selectedNames.clear();
+  updateSelectedCount();
 
 }
 
-function onSearchInput() {
+function currentNameList() {
+  return currentType === "Food" ? localFoodNames : localRecipeNames;
+}
 
-  const query = document.getElementById("searchInput").value.trim().toLowerCase();
-  const source = (currentType === "Food") ? localFoodNames : localRecipeNames;
+function onItemSearch() {
+
+  const query = document.getElementById("itemSearch").value.trim().toLowerCase();
+  const resultsBox = document.getElementById("itemResults");
 
   selectedNames.clear();
   updateSelectedCount();
 
-  const matches = query.length === 0
-    ? []
-    : source.filter(function(name) { return name.toLowerCase().indexOf(query) !== -1; }).slice(0, 8);
-
-  renderLocalResults(matches, query);
-
-  if (currentType === "Food" && query.length >= 2) {
-    document.getElementById("usdaQueryLabel").textContent = query;
-    document.getElementById("searchUsdaBtn").style.display = "block";
-  } else {
-    document.getElementById("searchUsdaBtn").style.display = "none";
-  }
-
   document.getElementById("usdaSection").style.display = "none";
   document.getElementById("usdaResults").innerHTML = "";
 
-}
-
-function renderLocalResults(matches, query) {
-
-  const container = document.getElementById("localResults");
-
   if (query.length === 0) {
-    container.innerHTML = "<div class='empty-state'>Start typing to search your saved " +
-      (currentType === "Food" ? "foods" : "recipes") + ".</div>";
+    resultsBox.style.display = "none";
+    document.getElementById("searchUsdaBtn").style.display = "none";
     return;
   }
+
+  const matches = currentNameList()
+    .filter(function(name) { return name.toLowerCase().indexOf(query) !== -1; })
+    .slice(0, 8);
+
+  resultsBox.style.display = "block";
 
   if (matches.length === 0) {
-    container.innerHTML = "<div class='empty-state'>No matches in your " +
-      (currentType === "Food" ? "Foods" : "Recipes") + " list yet.</div>";
-    return;
+    resultsBox.innerHTML = "<div class='empty-state'>No matches in your " + (currentType === "Food" ? "Foods" : "Recipes") + " list.</div>";
+  } else {
+    resultsBox.innerHTML = matches.map(function(name) {
+      const safeId = "chk_" + btoa(unescape(encodeURIComponent(name))).replace(/[^a-zA-Z0-9]/g, "");
+      return "<div class='result-item checkable'>" +
+        "<input type='checkbox' id='" + safeId + "' onchange='toggleSelected(" + jsStringLiteral(name) + ", this.checked)'>" +
+        "<label for='" + safeId + "' class='item-name' style='flex:1; margin:0; font-weight:600; color:var(--ink);'>" + escapeHtml(name) + "</label>" +
+      "</div>";
+    }).join("");
   }
 
-  container.innerHTML = matches.map(function(name) {
-    const safeId = "chk_" + btoa(unescape(encodeURIComponent(name))).replace(/[^a-zA-Z0-9]/g, "");
-    return "<div class='result-item checkable'>" +
-      "<input type='checkbox' id='" + safeId + "' onchange='toggleSelected(" + jsStringLiteral(name) + ", this.checked)'>" +
-      "<label for='" + safeId + "' style='flex:1; margin:0; font-weight:600; color:var(--ink);'>" + escapeHtml(name) + "</label>" +
-    "</div>";
-  }).join("");
+  document.getElementById("usdaQueryLabel").textContent = query;
+  document.getElementById("searchUsdaBtn").style.display = (currentType === "Food" && query.length >= 2) ? "block" : "none";
 
+}
+
+function onItemEnterPressed() {
+  const query = document.getElementById("itemSearch").value.trim();
+  if (currentType === "Food" && query.length >= 2 && selectedNames.size === 0) {
+    searchUsda();
+  }
 }
 
 function toggleSelected(name, checked) {
@@ -261,75 +250,19 @@ function updateSelectedCount() {
   const btn = document.getElementById("addSelectedBtn");
   if (count === 0) {
     btn.style.display = "none";
-    document.getElementById("searchUsdaBtn").style.display =
-      (currentType === "Food" && document.getElementById("searchInput").value.trim().length >= 2) ? "block" : "none";
-  } else if (count === 1) {
-    btn.style.display = "block";
-    btn.textContent = "Add to Meal";
-    document.getElementById("searchUsdaBtn").style.display = "none";
-    document.getElementById("usdaSection").style.display = "none";
+    const query = document.getElementById("itemSearch").value.trim();
+    document.getElementById("searchUsdaBtn").style.display = (currentType === "Food" && query.length >= 2) ? "block" : "none";
   } else {
     btn.style.display = "block";
-    btn.textContent = "Add All (" + count + ") to Meal";
+    btn.textContent = (count === 1) ? "Add to Log" : "Add All (" + count + ") to Log";
     document.getElementById("searchUsdaBtn").style.display = "none";
     document.getElementById("usdaSection").style.display = "none";
   }
-}
-
-function onEnterPressed() {
-
-  const query = document.getElementById("searchInput").value.trim();
-
-  if (currentType === "Food" && query.length >= 2 && selectedNames.size === 0) {
-    searchUsda();
-  }
-
-}
-
-function addSelectedToCart() {
-
-  const names = Array.from(selectedNames);
-
-  if (currentType === "Recipe") {
-
-    names.forEach(function(name) {
-      cart.push({ type: "Recipe", name: name, amount: "", unit: "serving", meal: document.getElementById("mealInput").value });
-    });
-
-    selectedNames.clear();
-    document.getElementById("searchInput").value = "";
-    onSearchInput();
-    renderCart();
-    return;
-
-  }
-
-  // Look up each food's native serving unit so it's pre-selected by
-  // default, instead of always defaulting to grams.
-  Promise.all(names.map(function(name) {
-    return apiGet("getFoodDetails", { name: name }).then(function(json) {
-      return { name: name, unit: (json.success && json.data.servingUnit) ? json.data.servingUnit : "g" };
-    }).catch(function() {
-      return { name: name, unit: "g" };
-    });
-  })).then(function(results) {
-
-    results.forEach(function(r) {
-      cart.push({ type: "Food", name: r.name, amount: "", unit: r.unit, meal: document.getElementById("mealInput").value });
-    });
-
-    selectedNames.clear();
-    document.getElementById("searchInput").value = "";
-    onSearchInput();
-    renderCart();
-
-  });
-
 }
 
 function searchUsda() {
 
-  const query = document.getElementById("searchInput").value.trim();
+  const query = document.getElementById("itemSearch").value.trim();
   const usdaSection = document.getElementById("usdaSection");
   const usdaResults = document.getElementById("usdaResults");
 
@@ -349,7 +282,7 @@ function searchUsda() {
     }
 
     usdaResults.innerHTML = json.data.map(function(food) {
-      return "<div class='result-item' onclick='importAndAddToCart(" + food.fdcId + ")'>" +
+      return "<div class='result-item' onclick='importFromUsda(" + food.fdcId + ")'>" +
         "<div class='item-name'>" + escapeHtml(food.description) + "</div>" +
         "<div class='item-meta'>" + escapeHtml(food.dataType) +
         (food.brand ? " &middot; " + escapeHtml(food.brand) : "") + "</div>" +
@@ -362,7 +295,7 @@ function searchUsda() {
 
 }
 
-function importAndAddToCart(fdcId) {
+function importFromUsda(fdcId) {
 
   const usdaResults = document.getElementById("usdaResults");
   usdaResults.innerHTML = "<div class='empty-state'>Importing...</div>";
@@ -374,14 +307,12 @@ function importAndAddToCart(fdcId) {
       return;
     }
 
-    localFoodNames.push(json.data.description);
-    cart.push({ type: "Food", name: json.data.description, amount: "", unit: "g", meal: document.getElementById("mealInput").value });
+    localFoodNames.push(json.data.name);
+    addToCart(json.data.name, "Food", json.data.serving_unit || "g");
 
     document.getElementById("usdaSection").style.display = "none";
-    document.getElementById("searchInput").value = "";
-    onSearchInput();
-
-    renderCart();
+    document.getElementById("itemSearch").value = "";
+    onItemSearch();
 
   }).catch(function(err) {
     usdaResults.innerHTML = "<div class='empty-state'>Import failed: " + escapeHtml(err.message) + "</div>";
@@ -389,7 +320,38 @@ function importAndAddToCart(fdcId) {
 
 }
 
-function removeCartItem(index) {
+function addSelectedItems() {
+
+  const names = Array.from(selectedNames);
+  const type = currentType;
+
+  Promise.all(names.map(function(name) {
+    if (type !== "Food") return Promise.resolve({ name: name, unit: "serving" });
+    return apiGet("getFoodDetails", { name: name }).then(function(json) {
+      return { name: name, unit: (json.success && json.data.servingUnit) ? json.data.servingUnit : "g" };
+    }).catch(function() {
+      return { name: name, unit: "g" };
+    });
+  })).then(function(results) {
+
+    results.forEach(function(r) { addToCart(r.name, type, r.unit); });
+
+    selectedNames.clear();
+    document.getElementById("itemSearch").value = "";
+    document.getElementById("itemResults").style.display = "none";
+    updateSelectedCount();
+
+  });
+
+}
+
+function addToCart(name, type, unit) {
+  const defaultMeal = document.getElementById("defaultMealSelect").value;
+  cart.push({ name: name, type: type, amount: "", unit: unit, meal: defaultMeal });
+  renderCart();
+}
+
+function removeFromCart(index) {
   cart.splice(index, 1);
   renderCart();
 }
@@ -402,47 +364,47 @@ function updateCartUnit(index, value) {
   cart[index].unit = value;
 }
 
+function updateCartMeal(index, value) {
+  cart[index].meal = value;
+}
+
 function renderCart() {
 
-  const cartCard = document.getElementById("cartCard");
-  const cartList = document.getElementById("cartList");
-  const detailsCard = document.getElementById("logDetailsCard");
+  const card = document.getElementById("cartCard");
+  const list = document.getElementById("cartList");
 
   document.getElementById("cartCount").textContent = cart.length;
 
   if (cart.length === 0) {
-    cartCard.style.display = "none";
-    detailsCard.style.display = "none";
+    card.style.display = "none";
     return;
   }
 
-  cartCard.style.display = "block";
-  detailsCard.style.display = "block";
+  card.style.display = "block";
 
-  cartList.innerHTML = cart.map(function(item, i) {
+  const units = ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","piece","serving"];
+  const meals = ["Breakfast","Lunch","Dinner","Snack"];
+
+  list.innerHTML = cart.map(function(item, i) {
     return "<div class='cart-row'>" +
-      "<span class='cart-name'>" + escapeHtml(item.name) + "</span>" +
-      "<select class='meal-select' onchange='updateCartMeal(" + i + ", this.value)'>" +
-        ["Breakfast","Lunch","Dinner","Snack"].map(function(m) {
-          return "<option value='" + m + "'" + (item.meal === m ? " selected" : "") + ">" + m + "</option>";
-        }).join("") +
-      "</select>" +
-      "<input type='text' placeholder='amt' value='" + escapeHtml(item.amount) + "' " +
+      "<span class='cart-name'>" + escapeHtml(item.name) + " <span style='color:var(--ink-soft); font-weight:400;'>(" + item.type + ")</span></span>" +
+      "<input class='cart-amount' type='text' placeholder='amt' value='" + escapeHtml(item.amount) + "' " +
         "onchange='updateCartAmount(" + i + ", this.value)'>" +
-      "<select class='unit-select' onchange='updateCartUnit(" + i + ", this.value)'>" +
-        ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","piece","serving"].map(function(u) {
+      "<select class='cart-unit' onchange='updateCartUnit(" + i + ", this.value)'>" +
+        units.map(function(u) {
           const label = (u === "serving") ? "serving(s)" : (u === "piece") ? "piece(s)" : u;
           return "<option value='" + u + "'" + (item.unit === u ? " selected" : "") + ">" + label + "</option>";
         }).join("") +
       "</select>" +
-      "<button class='remove-btn' onclick='removeCartItem(" + i + ")'>&times;</button>" +
+      "<select class='cart-meal' onchange='updateCartMeal(" + i + ", this.value)'>" +
+        meals.map(function(m) {
+          return "<option value='" + m + "'" + (item.meal === m ? " selected" : "") + ">" + m + "</option>";
+        }).join("") +
+      "</select>" +
+      "<button class='remove-btn' onclick='removeFromCart(" + i + ")'>&times;</button>" +
     "</div>";
   }).join("");
 
-}
-
-function updateCartMeal(index, value) {
-  cart[index].meal = value;
 }
 
 function parseAmount(str) {
@@ -470,10 +432,15 @@ function parseAmount(str) {
 
 }
 
-function submitCart() {
+function logMeal() {
 
   const date = document.getElementById("dateInput").value;
   const notes = document.getElementById("notesInput").value.trim();
+
+  if (cart.length === 0) {
+    showResult(false, "Add at least one item before logging.");
+    return;
+  }
 
   const entries = [];
 
@@ -482,58 +449,46 @@ function submitCart() {
     const amount = parseAmount(cart[i].amount);
 
     if (!amount || isNaN(amount) || amount <= 0) {
-      showLogResult(false, "Enter a valid amount for \"" + cart[i].name + "\".");
+      showResult(false, "Enter a valid amount for \"" + cart[i].name + "\".");
       return;
     }
 
     entries.push({
-      date: date,
-      meal: cart[i].meal,
-      type: cart[i].type,
-      name: cart[i].name,
-      amount: amount,
-      unit: cart[i].unit,
-      notes: notes
+      date: date, meal: cart[i].meal, type: cart[i].type, name: cart[i].name,
+      amount: amount, unit: cart[i].unit, notes: notes
     });
 
   }
 
-  showLogResult(true, "Logging " + entries.length + " item(s)...");
+  showResult(true, "Logging " + entries.length + " item(s)...");
 
   apiPost("batchLogEntries", { entries: entries }).then(function(json) {
 
     if (!json.success) {
-      showLogResult(false, json.error);
+      showResult(false, json.error);
       return;
     }
 
     const failures = json.data.filter(function(r) { return !r.success; });
-    const successes = json.data.filter(function(r) { return r.success; });
 
     if (failures.length === 0) {
-      showLogResult(true, "Logged all " + successes.length + " item(s).");
+      showResult(true, "Logged " + entries.length + " item(s).");
       cart = [];
       renderCart();
+      document.getElementById("notesInput").value = "";
     } else {
-      showLogResult(false,
-        successes.length + " logged, " + failures.length + " failed:\n" +
-        failures.map(function(f) { return f.name + ": " + f.error; }).join("\n")
-      );
-      // Keep only the failed items in the cart so they can be corrected and resubmitted
-      cart = cart.filter(function(item) {
-        return failures.some(function(f) { return f.name === item.name; });
-      });
-      renderCart();
+      showResult(false, failures.length + " item(s) failed. Check the console for details.");
+      console.log(failures);
     }
 
   }).catch(function(err) {
-    showLogResult(false, "Could not reach the backend: " + err.message);
+    showResult(false, "Could not reach the backend: " + err.message);
   });
 
 }
 
-function showLogResult(ok, message) {
-  const box = document.getElementById("logResultBox");
+function showResult(ok, message) {
+  const box = document.getElementById("resultBox");
   box.className = "result-box " + (ok ? "ok" : "error");
   box.textContent = message;
 }

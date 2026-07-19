@@ -251,8 +251,8 @@ function importIngredientFromUsda(fdcId) {
       return;
     }
 
-    localFoodNames.push(json.data.description);
-    ingredients.push({ name: json.data.description, amount: "", unit: "g" });
+    localFoodNames.push(json.data.name);
+    ingredients.push({ name: json.data.name, amount: "", unit: json.data.serving_unit || "g" });
 
     document.getElementById("ingredientUsdaSection").style.display = "none";
     document.getElementById("ingredientSearch").value = "";
