@@ -56,6 +56,29 @@
     </div>
     <div class="helper">Nutrition values below should match this serving amount exactly (e.g. per 100g, or per 1 cup).</div>
 
+    <label for="altServingSizeInput">Also known as (optional)</label>
+    <div class="row-2">
+      <div>
+        <input type="text" id="altServingSizeInput" placeholder="e.g. 5">
+      </div>
+      <div>
+        <select id="altServingUnitSelect">
+          <option value="g">g</option>
+          <option value="kg">kg</option>
+          <option value="oz">oz</option>
+          <option value="lb">lb</option>
+          <option value="ml">ml</option>
+          <option value="l">l</option>
+          <option value="tsp">tsp</option>
+          <option value="tbsp">tbsp</option>
+          <option value="cup">cup</option>
+          <option value="fl_oz">fl oz</option>
+          <option value="piece">piece(s)</option>
+        </select>
+      </div>
+    </div>
+    <div class="helper">e.g. if this food is "30g" but also "5 pieces" per serving, enter 5 / piece(s) here — then you can log in either unit.</div>
+
     <div class="row-2">
       <div>
         <label for="caloriesInput">Calories</label>
@@ -119,6 +142,8 @@ function saveFood() {
     brand: document.getElementById("brandInput").value.trim(),
     servingSize: servingSize,
     servingUnit: document.getElementById("servingUnitSelect").value,
+    altServingSize: parseFloat(document.getElementById("altServingSizeInput").value) || null,
+    altServingUnit: document.getElementById("altServingUnitSelect").value,
     calories: calories,
     protein: protein,
     fat: fat,
@@ -142,6 +167,7 @@ function saveFood() {
     document.getElementById("nameInput").value = "";
     document.getElementById("brandInput").value = "";
     document.getElementById("servingSizeInput").value = "";
+    document.getElementById("altServingSizeInput").value = "";
     document.getElementById("caloriesInput").value = "";
     document.getElementById("proteinInput").value = "";
     document.getElementById("fatInput").value = "";

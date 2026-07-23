@@ -85,10 +85,12 @@
 
   <div class="card">
     <h2>Recipe name</h2>
-    <input type="text" id="recipeNameInput" placeholder="e.g. Chicken Stir Fry">
+    <input type="text" id="recipeNameInput" placeholder="e.g. Chicken Stir Fry" list="recipeNameOptions" oninput="onRecipeNameInput()">
+    <datalist id="recipeNameOptions"></datalist>
     <label for="servingsInput">Servings this recipe makes</label>
     <input type="text" id="servingsInput" placeholder="1" value="1">
     <div class="helper">e.g. a lasagna that makes 16 servings — then "1 serving" logged later means 1/16 of the batch. Leave at 1 if the whole recipe is a single serving (like a smoothie).</div>
+    <div class="helper" id="editingNotice" style="display:none; color:var(--accent); font-weight:600;">Editing existing recipe — saving will replace its current ingredients with what's below.</div>
   </div>
 
   <div class="card">
@@ -155,7 +157,51 @@ window.addEventListener("load", async function() {
     if (json.success) localFoodNames = json.data;
   });
 
+  apiGet("getRecipeNames").then(function(json) {
+    if (json.success) {
+      knownRecipeNames = json.data;
+      const list = document.getElementById("recipeNameOptions");
+      json.data.forEach(function(name) {
+        const opt = document.createElement("option");
+        opt.value = name;
+        list.appendChild(opt);
+      });
+    }
+  });
+
 });
+
+let knownRecipeNames = [];
+let editingExistingRecipe = false;
+
+function onRecipeNameInput() {
+
+  const name = document.getElementById("recipeNameInput").value.trim();
+  const isKnown = knownRecipeNames.some(function(n) { return n.toLowerCase() === name.toLowerCase(); });
+
+  if (!isKnown) {
+    editingExistingRecipe = false;
+    document.getElementById("editingNotice").style.display = "none";
+    return;
+  }
+
+  apiGet("getRecipeForEditing", { name: name }).then(function(json) {
+
+    if (!json.success) return;
+
+    editingExistingRecipe = true;
+    document.getElementById("editingNotice").style.display = "block";
+    document.getElementById("servingsInput").value = json.data.servings;
+
+    ingredients = json.data.ingredients.map(function(ing) {
+      return { name: ing.name, amount: String(ing.amount), unit: ing.unit };
+    });
+
+    renderIngredients();
+
+  });
+
+}
 
 function onIngredientSearch() {
 
@@ -436,10 +482,22 @@ function saveRecipe() {
     showSaveResult(true, "Saved \"" + recipeName + "\".");
     showSummary(json.data);
 
+    const wasEditingExisting = editingExistingRecipe;
+
     // Reset the ingredient builder for a fresh recipe, keep the name
     // in case the person wants to immediately add more to the same one.
     ingredients = [];
+    editingExistingRecipe = false;
+    document.getElementById("editingNotice").style.display = "none";
     renderIngredients();
+
+    if (wasEditingExisting && confirm("Recalculate past logged entries that used this recipe with its updated ingredients?\n\nThis will change historical totals on days you already logged it. Choose Cancel to leave past logs as they were.")) {
+      apiPost("recalculatePastLogsForRecipe", { name: recipeName }).then(function(recalcJson) {
+        if (recalcJson.success) {
+          showSaveResult(true, "Saved \"" + recipeName + "\". Updated " + recalcJson.data.count + " past log entr" + (recalcJson.data.count === 1 ? "y" : "ies") + ".");
+        }
+      });
+    }
 
   }).catch(function(err) {
     showSaveResult(false, "Could not reach the backend: " + err.message);

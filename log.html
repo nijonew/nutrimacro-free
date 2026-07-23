@@ -104,6 +104,18 @@
     <div class="helper">Applies to newly added items. Each item below can still be changed individually.</div>
   </div>
 
+  <div class="card" id="favoriteMealsCard" style="display:none;">
+    <h2>Favorite Meals</h2>
+    <div class="result-list" id="favoriteMealsList"></div>
+    <div class="helper" style="margin-bottom:0;">Tap to add every item in that meal to your cart below.</div>
+  </div>
+
+  <div class="card" id="recentCard" style="display:none;">
+    <h2>Recent</h2>
+    <div class="result-list" id="recentList"></div>
+    <div class="helper" style="margin-bottom:0;">Tap an item to add it with the amount you last logged.</div>
+  </div>
+
   <div class="card">
     <h2>What are you logging?</h2>
     <div class="segmented">
@@ -125,12 +137,21 @@
       Search USDA for &ldquo;<span id="usdaQueryLabel"></span>&rdquo;
     </button>
 
+    <button class="secondary" id="scanBarcodeBtn" style="margin-top:10px;" onclick="openBarcodeScanner()">&#128247; Scan Barcode</button>
+
     <a class="create-shortcut" id="createShortcut" href="./add-food.html">+ Create a New Food</a>
+  </div>
+
+  <div id="scannerOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:2000; flex-direction:column; align-items:center; justify-content:center;">
+    <video id="scannerVideo" style="width:90%; max-width:400px; border-radius:12px;"></video>
+    <div id="scannerStatus" style="color:#fff; margin-top:14px; font-size:14px;">Point your camera at a barcode</div>
+    <button class="secondary" style="width:auto; margin-top:16px; padding:10px 24px;" onclick="closeBarcodeScanner()">Cancel</button>
   </div>
 
   <div class="card" id="cartCard" style="display:none;">
     <h2>Items to log (<span id="cartCount">0</span>)</h2>
     <div id="cartList"></div>
+    <button class="secondary" style="margin-top:10px;" onclick="saveCurrentCartAsFavorite()">Save as Favorite Meal</button>
   </div>
 
   <div class="card">
@@ -143,9 +164,43 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@zxing/library@0.20.0"></script>
 <script src="./calc.js"></script>
 <script src="./app.js"></script>
 <script>
+
+let codeReader = null;
+
+function openBarcodeScanner() {
+
+  setType("Food"); // barcodes only make sense for packaged foods
+
+  document.getElementById("scannerOverlay").style.display = "flex";
+  document.getElementById("scannerStatus").textContent = "Point your camera at a barcode";
+
+  codeReader = new ZXing.BrowserMultiFormatReader();
+
+  codeReader.decodeFromVideoDevice(null, "scannerVideo", function(result, err) {
+    if (result) {
+      const barcode = result.getText();
+      closeBarcodeScanner();
+      document.getElementById("itemSearch").value = barcode;
+      searchUsda();
+    }
+    // NotFoundException fires continuously while no barcode is in view — ignore it
+  }).catch(function(err) {
+    document.getElementById("scannerStatus").textContent = "Camera error: " + err.message;
+  });
+
+}
+
+function closeBarcodeScanner() {
+  if (codeReader) {
+    codeReader.reset();
+    codeReader = null;
+  }
+  document.getElementById("scannerOverlay").style.display = "none";
+}
 
 let currentType = "Food";
 let localFoodNames = [];
@@ -169,7 +224,105 @@ window.addEventListener("load", async function() {
     if (json.success) localRecipeNames = json.data;
   });
 
+  apiGet("getRecentFoods", { limit: 8 }).then(function(json) {
+    if (json.success) renderRecents(json.data);
+  });
+
+  apiGet("getFavoriteMealNames").then(function(json) {
+    if (json.success) renderFavoriteMeals(json.data);
+  });
+
 });
+
+function renderFavoriteMeals(names) {
+
+  const card = document.getElementById("favoriteMealsCard");
+  const list = document.getElementById("favoriteMealsList");
+
+  if (!names || names.length === 0) {
+    card.style.display = "none";
+    return;
+  }
+
+  card.style.display = "block";
+
+  list.innerHTML = names.map(function(name) {
+    return "<div class='result-item' onclick='loadFavoriteMeal(" + jsStringLiteral(name) + ")'>" +
+      "<div class='item-name'>" + escapeHtml(name) + "</div>" +
+    "</div>";
+  }).join("");
+
+}
+
+function loadFavoriteMeal(name) {
+  apiGet("getFavoriteMeal", { name: name }).then(function(json) {
+    if (!json.success) { alert("Could not load favorite meal: " + json.error); return; }
+    json.data.items.forEach(function(item) {
+      addToCart(item.name, item.type, item.unit, item.amount);
+    });
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+}
+
+function saveCurrentCartAsFavorite() {
+
+  if (cart.length === 0) { alert("Add some items to your cart first."); return; }
+
+  const name = prompt("Name this favorite meal (e.g. \"Usual Breakfast\"):");
+  if (!name || !name.trim()) return;
+
+  const items = [];
+  for (const item of cart) {
+    const amount = parseAmount(item.amount);
+    if (!amount || isNaN(amount) || amount <= 0) {
+      alert("\"" + item.name + "\" needs a valid amount before this can be saved as a favorite meal.");
+      return;
+    }
+    items.push({ name: item.name, type: item.type, amount: amount, unit: item.unit });
+  }
+
+  apiPost("saveFavoriteMeal", { name: name.trim(), items: items }).then(function(json) {
+    if (!json.success) { alert("Could not save favorite meal: " + json.error); return; }
+    alert("Saved \"" + name.trim() + "\" as a favorite meal.");
+    apiGet("getFavoriteMealNames").then(function(namesJson) {
+      if (namesJson.success) renderFavoriteMeals(namesJson.data);
+    });
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+
+}
+
+function renderRecents(recents) {
+
+  const card = document.getElementById("recentCard");
+  const list = document.getElementById("recentList");
+
+  if (!recents || recents.length === 0) {
+    card.style.display = "none";
+    return;
+  }
+
+  card.style.display = "block";
+
+  list.innerHTML = recents.map(function(r, i) {
+    return "<div class='result-item' onclick='addRecentToCart(" + i + ")'>" +
+      "<div class='item-name'>" + escapeHtml(r.name) + "</div>" +
+      "<div class='item-meta'>" + formatAmountForDisplay(r.amount) + " " + escapeHtml(r.unit) +
+      " &middot; " + escapeHtml(r.type) + "</div>" +
+    "</div>";
+  }).join("");
+
+  window._recentItems = recents;
+
+}
+
+function addRecentToCart(index) {
+  const r = window._recentItems[index];
+  if (!r) return;
+  addToCart(r.name, r.type, r.unit, r.amount);
+}
 
 function setType(type) {
 
@@ -179,6 +332,7 @@ function setType(type) {
   document.getElementById("typeRecipeBtn").classList.toggle("active", type === "Recipe");
   document.getElementById("createShortcut").href = (type === "Food") ? "./add-food.html" : "./recipe.html";
   document.getElementById("createShortcut").textContent = (type === "Food") ? "+ Create a New Food" : "+ Create a New Recipe";
+  document.getElementById("scanBarcodeBtn").style.display = (type === "Food") ? "block" : "none";
 
   document.getElementById("itemSearch").value = "";
   document.getElementById("itemResults").style.display = "none";
@@ -345,9 +499,9 @@ function addSelectedItems() {
 
 }
 
-function addToCart(name, type, unit) {
+function addToCart(name, type, unit, amount) {
   const defaultMeal = document.getElementById("defaultMealSelect").value;
-  cart.push({ name: name, type: type, amount: "", unit: unit, meal: defaultMeal });
+  cart.push({ name: name, type: type, amount: (amount !== undefined && amount !== null) ? String(amount) : "", unit: unit, meal: defaultMeal });
   renderCart();
 }
 

@@ -64,6 +64,28 @@
       </div>
     </div>
 
+    <label for="altServingSizeInput">Also known as (optional)</label>
+    <div class="row-2">
+      <div>
+        <input type="text" id="altServingSizeInput" placeholder="e.g. 5">
+      </div>
+      <div>
+        <select id="altServingUnitSelect">
+          <option value="g">g</option>
+          <option value="kg">kg</option>
+          <option value="oz">oz</option>
+          <option value="lb">lb</option>
+          <option value="ml">ml</option>
+          <option value="l">l</option>
+          <option value="tsp">tsp</option>
+          <option value="tbsp">tbsp</option>
+          <option value="cup">cup</option>
+          <option value="fl_oz">fl oz</option>
+          <option value="piece">piece(s)</option>
+        </select>
+      </div>
+    </div>
+
     <div class="row-2">
       <div>
         <label for="caloriesInput">Calories</label>
@@ -91,6 +113,11 @@
 
     <label for="notesInput">Notes</label>
     <textarea id="notesInput" rows="2"></textarea>
+
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+      <input type="checkbox" id="favoriteInput" style="width:auto; margin:0;">
+      <label for="favoriteInput" style="margin:0; font-weight:600; font-size:13px; color:var(--ink);">Favorite (shows first in search)</label>
+    </div>
 
     <button onclick="saveChanges()">Save Changes</button>
     <button class="secondary" style="margin-top:10px;" onclick="cancelEdit()">Cancel / Search Again</button>
@@ -163,12 +190,15 @@ function loadFood(name) {
     document.getElementById("brandInput").value = f.brand || "";
     document.getElementById("servingSizeInput").value = f.servingSize;
     document.getElementById("servingUnitSelect").value = f.servingUnit;
+    document.getElementById("altServingSizeInput").value = f.altServingSize || "";
+    document.getElementById("altServingUnitSelect").value = f.altServingUnit || "g";
     document.getElementById("caloriesInput").value = f.calories;
     document.getElementById("proteinInput").value = f.protein;
     document.getElementById("fatInput").value = f.fat;
     document.getElementById("carbsInput").value = f.carbs;
     document.getElementById("fiberInput").value = f.fiber;
     document.getElementById("notesInput").value = f.notes || "";
+    document.getElementById("favoriteInput").checked = !!f.favorite;
 
     document.getElementById("searchCard").style.display = "none";
     document.getElementById("editCard").style.display = "block";
@@ -197,12 +227,15 @@ function saveChanges() {
     brand: document.getElementById("brandInput").value.trim(),
     servingSize: parseFloat(document.getElementById("servingSizeInput").value),
     servingUnit: document.getElementById("servingUnitSelect").value,
+    altServingSize: parseFloat(document.getElementById("altServingSizeInput").value) || null,
+    altServingUnit: document.getElementById("altServingUnitSelect").value,
     calories: parseFloat(document.getElementById("caloriesInput").value) || 0,
     protein: parseFloat(document.getElementById("proteinInput").value) || 0,
     fat: parseFloat(document.getElementById("fatInput").value) || 0,
     carbs: parseFloat(document.getElementById("carbsInput").value) || 0,
     fiber: parseFloat(document.getElementById("fiberInput").value) || 0,
-    notes: document.getElementById("notesInput").value.trim()
+    notes: document.getElementById("notesInput").value.trim(),
+    favorite: document.getElementById("favoriteInput").checked
   };
 
   if (!fields.name) { showResult(false, "Food name is required."); return; }
@@ -225,6 +258,14 @@ function saveChanges() {
     // Update local cache in case the name changed
     const idx = localFoodNames.indexOf(originalName);
     if (idx !== -1) localFoodNames[idx] = json.data.name;
+
+    if (confirm("Recalculate past logged entries that used this food with its updated macros?\n\nThis will change historical totals on days you already logged it. Choose Cancel to leave past logs as they were.")) {
+      apiPost("recalculatePastLogsForFood", { name: json.data.name }).then(function(recalcJson) {
+        if (recalcJson.success) {
+          showResult(true, "Saved changes to \"" + json.data.name + "\". Updated " + recalcJson.data.count + " past log entr" + (recalcJson.data.count === 1 ? "y" : "ies") + ".");
+        }
+      });
+    }
 
   }).catch(function(err) {
     showResult(false, "Could not reach the backend: " + err.message);

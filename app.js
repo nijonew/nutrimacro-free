@@ -110,10 +110,19 @@ async function routeAction(action, params) {
     case "getRecipeNames": return getRecipeNames();
     case "saveRecipe": return saveRecipe(params.recipeName, params.ingredients, params.servings);
     case "recalculateRecipe": return recalculateRecipe(params.recipeName);
+    case "getRecipeForEditing": return getRecipeForEditing(params.name);
 
     case "getDailyLogEntries": return getDailyLogEntries(params.date);
     case "batchLogEntries": return batchLogEntries(params.entries);
     case "repeatMeal": return repeatMeal(params.sourceDate, params.meal, params.targetDate);
+    case "getRecentFoods": return getRecentFoods(params.limit);
+    case "recalculatePastLogsForFood": return recalculatePastLogsForFood(params.name);
+    case "recalculatePastLogsForRecipe": return recalculatePastLogsForRecipe(params.name);
+
+    case "getFavoriteMealNames": return getFavoriteMealNames();
+    case "saveFavoriteMeal": return saveFavoriteMeal(params.name, params.items);
+    case "getFavoriteMeal": return getFavoriteMeal(params.name);
+    case "deleteFavoriteMeal": return deleteFavoriteMeal(params.name);
 
     case "getExerciseNames": return getExerciseNames();
     case "addExercise": return addExercise(params.name, params.category, params.notes);
@@ -150,7 +159,8 @@ async function callUsdaFunction(usdaAction, payload) {
 // ============================================================
 
 async function getFoodNames() {
-  const { data, error } = await sb.from("foods").select("name").eq("active", true).order("name");
+  const { data, error } = await sb.from("foods").select("name").eq("active", true)
+    .order("favorite", { ascending: false }).order("name");
   if (error) throw new Error(error.message);
   return data.map(function(row) { return row.name; });
 }
@@ -161,6 +171,7 @@ async function getFoodDetails(name) {
   if (!data) throw new Error("Food not found: " + name);
   return {
     name: data.name, brand: data.brand, servingSize: data.serving_size, servingUnit: data.serving_unit,
+    altServingSize: data.alt_serving_size, altServingUnit: data.alt_serving_unit,
     calories: data.calories, protein: data.protein, fat: data.fat, carbs: data.carbs, fiber: data.fiber,
     notes: data.notes, favorite: data.favorite, active: data.active
   };
@@ -174,9 +185,11 @@ async function updateFood(originalName, fields) {
   const { data, error } = await sb.from("foods").update({
     name: fields.name, brand: fields.brand || null,
     serving_size: Number(fields.servingSize) || 100, serving_unit: fields.servingUnit || "g",
+    alt_serving_size: fields.altServingSize ? Number(fields.altServingSize) : null,
+    alt_serving_unit: fields.altServingSize ? (fields.altServingUnit || null) : null,
     calories: Number(fields.calories) || 0, protein: Number(fields.protein) || 0,
     fat: Number(fields.fat) || 0, carbs: Number(fields.carbs) || 0, fiber: Number(fields.fiber) || 0,
-    notes: fields.notes || null, updated_at: new Date().toISOString()
+    notes: fields.notes || null, favorite: !!fields.favorite, updated_at: new Date().toISOString()
   }).eq("id", existing.id).select("name").single();
 
   if (error) throw new Error(error.message);
@@ -194,9 +207,11 @@ async function addManualFood(fields) {
   const { data, error } = await sb.from("foods").insert({
     user_id: userId, name: fields.name, source: "Manual", brand: fields.brand || null,
     serving_size: Number(fields.servingSize) || 100, serving_unit: fields.servingUnit || "g",
+    alt_serving_size: fields.altServingSize ? Number(fields.altServingSize) : null,
+    alt_serving_unit: fields.altServingSize ? (fields.altServingUnit || null) : null,
     calories: Number(fields.calories) || 0, protein: Number(fields.protein) || 0,
     fat: Number(fields.fat) || 0, carbs: Number(fields.carbs) || 0, fiber: Number(fields.fiber) || 0,
-    notes: fields.notes || null, favorite: false, active: true
+    notes: fields.notes || null, favorite: !!fields.favorite, active: true
   }).select("name").single();
 
   if (error) throw new Error(error.message);
@@ -231,6 +246,12 @@ async function saveRecipe(recipeName, ingredients, servings) {
 
   const recipeId = await findOrCreateRecipe(recipeName);
 
+  // Full replace, not append — this is what makes editing an existing
+  // recipe (remove/change ingredients, then re-save) actually work,
+  // instead of silently piling up duplicate ingredient rows.
+  const { error: deleteError } = await sb.from("recipe_ingredients").delete().eq("recipe_id", recipeId);
+  if (deleteError) throw new Error(deleteError.message);
+
   for (const ing of ingredients) {
     const { data: food, error: foodError } = await sb.from("foods").select("id").ilike("name", ing.ingredient).maybeSingle();
     if (foodError) throw new Error(foodError.message);
@@ -247,6 +268,32 @@ async function saveRecipe(recipeName, ingredients, servings) {
   }
 
   return calculateRecipeSummary(sb, recipeId);
+
+}
+
+/**
+ * Loads an existing recipe's servings + ingredient list, so the Recipe
+ * screen can populate its editor with a saved recipe instead of only
+ * building new ones from scratch.
+ */
+async function getRecipeForEditing(recipeName) {
+
+  const { data: recipe, error } = await sb.from("recipes").select("id, servings").ilike("name", recipeName).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!recipe) throw new Error("Recipe not found: " + recipeName);
+
+  const { data: rows, error: ingError } = await sb
+    .from("recipe_ingredients")
+    .select("amount, unit, foods(name)")
+    .eq("recipe_id", recipe.id);
+
+  if (ingError) throw new Error(ingError.message);
+
+  const ingredients = (rows || []).map(function(row) {
+    return { name: row.foods ? row.foods.name : "", amount: row.amount, unit: row.unit };
+  });
+
+  return { servings: recipe.servings || 1, ingredients: ingredients };
 
 }
 
@@ -279,7 +326,7 @@ async function resolveRecipeServingBasis(recipeId) {
 
 async function logOneEntry(userId, e) {
 
-  let servingSize, servingUnit, macros, foodId = null, recipeId = null;
+  let servingSize, servingUnit, macros, foodId = null, recipeId = null, altServingSize = null, altServingUnit = null;
 
   if (e.type === "Food") {
     const { data: food, error } = await sb.from("foods").select("*").ilike("name", e.name).maybeSingle();
@@ -287,6 +334,7 @@ async function logOneEntry(userId, e) {
     if (!food) throw new Error("Food not found: " + e.name);
     foodId = food.id;
     servingSize = food.serving_size; servingUnit = food.serving_unit;
+    altServingSize = food.alt_serving_size; altServingUnit = food.alt_serving_unit;
     macros = { calories: food.calories, protein: food.protein, fat: food.fat, carbs: food.carbs, fiber: food.fiber };
   } else if (e.type === "Recipe") {
     const { data: recipe, error } = await sb.from("recipes").select("id").ilike("name", e.name).maybeSingle();
@@ -299,7 +347,7 @@ async function logOneEntry(userId, e) {
     throw new Error("Type must be 'Food' or 'Recipe'.");
   }
 
-  const result = calculateMacros(e.amount, e.unit, servingSize, servingUnit, macros);
+  const result = calculateMacros(e.amount, e.unit, servingSize, servingUnit, macros, altServingSize, altServingUnit);
 
   const { error: insertError } = await sb.from("daily_log").insert({
     user_id: userId, log_date: e.date, meal: e.meal, food_id: foodId, recipe_id: recipeId,
@@ -389,6 +437,53 @@ async function repeatMeal(sourceDate, meal, targetDate) {
   if (error) throw new Error(error.message);
 
   return { count: rows.length };
+
+}
+
+/**
+ * Replaces: the "Recent Foods quick-add" item from PENDING.md.
+ * Looks at the most recently logged rows (any date) and returns the
+ * first (i.e. most recent) occurrence of each distinct food/recipe,
+ * along with the amount/unit it was last logged with — so the Log
+ * screen can offer true one-tap re-logging of common items.
+ */
+async function getRecentFoods(limit) {
+
+  limit = limit || 8;
+  const userId = await getCurrentUserId();
+
+  // Pull a generous window of recent rows so we have enough distinct
+  // items to fill `limit` after de-duplicating.
+  const { data, error } = await sb
+    .from("daily_log")
+    .select("food_id, recipe_id, amount, unit, meal, foods(name), recipes(name), created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) throw new Error(error.message);
+  if (!data) return [];
+
+  const seen = new Set();
+  const recents = [];
+
+  for (const row of data) {
+
+    const key = row.food_id ? ("food:" + row.food_id) : ("recipe:" + row.recipe_id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const type = row.food_id ? "Food" : "Recipe";
+    const name = row.foods ? row.foods.name : (row.recipes ? row.recipes.name : "");
+    if (!name) continue;
+
+    recents.push({ name: name, type: type, amount: row.amount, unit: row.unit, meal: row.meal });
+
+    if (recents.length >= limit) break;
+
+  }
+
+  return recents;
 
 }
 
@@ -567,6 +662,168 @@ async function saveWorkoutTemplate(templateName, exercises) {
 
 }
 
+/**
+ * Replaces: "when a Food or Recipe's macros change, offer to recalculate
+ * past logged entries" from PENDING.md. Re-runs calculateMacros against
+ * every existing Daily Log row that used this food, using the food's
+ * CURRENT macros/serving info but each row's ORIGINAL logged amount/unit
+ * — then updates the stored calories/protein/fat/carbs/fiber/net_carbs.
+ */
+async function recalculatePastLogsForFood(name) {
+
+  const userId = await getCurrentUserId();
+
+  const { data: food, error: foodError } = await sb.from("foods").select("*").ilike("name", name).maybeSingle();
+  if (foodError) throw new Error(foodError.message);
+  if (!food) throw new Error("Food not found: " + name);
+
+  const { data: rows, error } = await sb.from("daily_log").select("id, amount, unit").eq("user_id", userId).eq("food_id", food.id);
+  if (error) throw new Error(error.message);
+  if (!rows || rows.length === 0) return { count: 0 };
+
+  const macros = { calories: food.calories, protein: food.protein, fat: food.fat, carbs: food.carbs, fiber: food.fiber };
+  let updated = 0;
+
+  for (const row of rows) {
+    try {
+      const result = calculateMacros(row.amount, row.unit, food.serving_size, food.serving_unit, macros, food.alt_serving_size, food.alt_serving_unit);
+      const { error: updateError } = await sb.from("daily_log").update({
+        calories: result.calories, protein: result.protein, fat: result.fat,
+        carbs: result.carbs, fiber: result.fiber, net_carbs: result.netCarbs
+      }).eq("id", row.id);
+      if (!updateError) updated++;
+    } catch (err) {
+      // A row logged in a unit that no longer converts (rare) — skip it rather than fail the whole batch.
+    }
+  }
+
+  return { count: updated };
+
+}
+
+async function recalculatePastLogsForRecipe(name) {
+
+  const userId = await getCurrentUserId();
+
+  const { data: recipe, error: recipeError } = await sb.from("recipes").select("id").ilike("name", name).maybeSingle();
+  if (recipeError) throw new Error(recipeError.message);
+  if (!recipe) throw new Error("Recipe not found: " + name);
+
+  const { data: rows, error } = await sb.from("daily_log").select("id, amount, unit").eq("user_id", userId).eq("recipe_id", recipe.id);
+  if (error) throw new Error(error.message);
+  if (!rows || rows.length === 0) return { count: 0 };
+
+  const basis = await resolveRecipeServingBasis(recipe.id);
+  let updated = 0;
+
+  for (const row of rows) {
+    try {
+      const result = calculateMacros(row.amount, row.unit, basis.servingSize, basis.servingUnit, basis.macros);
+      const { error: updateError } = await sb.from("daily_log").update({
+        calories: result.calories, protein: result.protein, fat: result.fat,
+        carbs: result.carbs, fiber: result.fiber, net_carbs: result.netCarbs
+      }).eq("id", row.id);
+      if (!updateError) updated++;
+    } catch (err) {
+      // skip rows that no longer convert
+    }
+  }
+
+  return { count: updated };
+
+}
+
+// ============================================================
+// Favorite Meals — save a combo of foods/recipes as a named meal,
+// re-log the whole thing in one action later.
+// ============================================================
+
+async function getFavoriteMealNames() {
+  const { data, error } = await sb.from("favorite_meals").select("name").order("name");
+  if (error) throw new Error(error.message);
+  return data.map(function(row) { return row.name; });
+}
+
+async function saveFavoriteMeal(name, items) {
+
+  if (!name || !items || items.length === 0) {
+    throw new Error("A name and at least one item are required.");
+  }
+
+  const userId = await getCurrentUserId();
+
+  let { data: meal } = await sb.from("favorite_meals").select("id").ilike("name", name).maybeSingle();
+  if (!meal) {
+    const { data: created, error: createError } = await sb.from("favorite_meals")
+      .insert({ user_id: userId, name: name }).select("id").single();
+    if (createError) throw new Error(createError.message);
+    meal = created;
+  } else {
+    // Full replace, same pattern as recipe editing — re-saving a
+    // favorite meal under the same name replaces its items.
+    const { error: deleteError } = await sb.from("favorite_meal_items").delete().eq("favorite_meal_id", meal.id);
+    if (deleteError) throw new Error(deleteError.message);
+  }
+
+  for (const item of items) {
+
+    let foodId = null, recipeId = null;
+
+    if (item.type === "Food") {
+      const { data: food } = await sb.from("foods").select("id").ilike("name", item.name).maybeSingle();
+      if (!food) throw new Error("Food not found: " + item.name);
+      foodId = food.id;
+    } else {
+      const { data: recipe } = await sb.from("recipes").select("id").ilike("name", item.name).maybeSingle();
+      if (!recipe) throw new Error("Recipe not found: " + item.name);
+      recipeId = recipe.id;
+    }
+
+    const { error: insertError } = await sb.from("favorite_meal_items").insert({
+      favorite_meal_id: meal.id, food_id: foodId, recipe_id: recipeId, amount: item.amount, unit: item.unit
+    });
+    if (insertError) throw new Error(insertError.message);
+
+  }
+
+  return { name: name, count: items.length };
+
+}
+
+async function getFavoriteMeal(name) {
+
+  const { data: meal, error } = await sb.from("favorite_meals").select("id").ilike("name", name).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!meal) throw new Error("Favorite meal not found: " + name);
+
+  const { data: rows, error: itemsError } = await sb
+    .from("favorite_meal_items")
+    .select("amount, unit, food_id, recipe_id, foods(name), recipes(name)")
+    .eq("favorite_meal_id", meal.id);
+
+  if (itemsError) throw new Error(itemsError.message);
+
+  const items = (rows || []).map(function(row) {
+    return {
+      type: row.food_id ? "Food" : "Recipe",
+      name: row.food_id ? (row.foods ? row.foods.name : "") : (row.recipes ? row.recipes.name : ""),
+      amount: row.amount, unit: row.unit
+    };
+  });
+
+  return { items: items };
+
+}
+
+async function deleteFavoriteMeal(name) {
+  const { data: meal, error } = await sb.from("favorite_meals").select("id").ilike("name", name).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!meal) throw new Error("Favorite meal not found: " + name);
+  const { error: deleteError } = await sb.from("favorite_meals").delete().eq("id", meal.id);
+  if (deleteError) throw new Error(deleteError.message);
+  return { deleted: true };
+}
+
 // ============================================================
 // Global navigation menu (hamburger) — unchanged from before
 // ============================================================
@@ -612,12 +869,17 @@ function injectNavMenu() {
       { href: "./today.html", label: "Today" },
       { href: "./recipe.html", label: "Build a Recipe" },
       { href: "./add-food.html", label: "Add Food Manually" },
+      { href: "./bulk-import.html", label: "Bulk Import Foods" },
       { href: "./edit-food.html", label: "Edit a Food" }
     ]},
     { section: "Workouts", items: [
       { href: "./workout.html", label: "Log Workout" },
       { href: "./workout-history.html", label: "Workout History" },
       { href: "./workout-templates.html", label: "Build a Template" }
+    ]},
+    { section: "Progress", items: [
+      { href: "./progress.html", label: "Log Progress" },
+      { href: "./achievements.html", label: "Achievements" }
     ]},
     { section: "Account", items: [
       { href: "./settings.html", label: "Settings" },
