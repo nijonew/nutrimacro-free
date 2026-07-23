@@ -1,9 +1,9 @@
 // Basic app-shell caching. This does NOT cache API responses —
-// those always need a live network call to your Apps Script backend.
+// those always need a live network call (Supabase now, not Apps Script).
 // It only lets the app's own shell (HTML/CSS/JS) load instantly and
 // work even with a flaky connection.
 
-const CACHE_NAME = "nutrition-app-shell-v12";
+const CACHE_NAME = "nutrition-app-shell-v16";
 const SHELL_FILES = [
   "./index.html",
   "./log.html",
@@ -12,12 +12,16 @@ const SHELL_FILES = [
   "./settings.html",
   "./add-food.html",
   "./edit-food.html",
+  "./bulk-import.html",
   "./workout.html",
   "./workout-history.html",
   "./workout-templates.html",
   "./report.html",
+  "./achievements.html",
+  "./progress.html",
   "./manifest.json",
   "./style.css",
+  "./calc.js",
   "./app.js"
 ];
 
@@ -44,8 +48,8 @@ self.addEventListener("activate", function(event) {
 
 self.addEventListener("fetch", function(event) {
 
-  // Never cache calls to the Apps Script API — always go live.
-  if (event.request.url.indexOf("script.google.com") !== -1) {
+  // Never cache calls to Supabase or its Edge Functions — always go live.
+  if (event.request.url.indexOf("supabase.co") !== -1) {
     return;
   }
 

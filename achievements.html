@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Achievements</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+<style>
+
+  .ach-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .ach-row:last-child { border-bottom: none; }
+  .ach-info { flex: 1; min-width: 0; }
+  .ach-label { font-weight: 700; font-size: 14px; }
+  .ach-meta { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+
+  .ach-earned-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--success);
+    background: var(--success-bg);
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  .ach-row button { width: auto; padding: 7px 12px; font-size: 12px; white-space: nowrap; }
+
+  .ach-delete {
+    width: auto;
+    padding: 4px 8px;
+    font-size: 14px;
+    background: transparent;
+    border: none;
+    color: var(--error);
+  }
+
+  .ach-actions { display: flex; align-items: center; gap: 6px; }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    margin: 16px 0 4px;
+  }
+
+  .section-label:first-child { margin-top: 0; }
+
+  .category-filter {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+
+  .category-filter button {
+    width: auto;
+    padding: 6px 12px;
+    font-size: 12px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+
+  .category-filter button.active {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Progress</div>
+    <h1>Achievements</h1>
+  </div>
+  <a class="back" href="./index.html">&larr; Home</a>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Add an achievement</h2>
+
+    <label for="labelInput">What's the goal?</label>
+    <input type="text" id="labelInput" placeholder="e.g. Run a 5K">
+
+    <label for="categoryInput">Category (optional)</label>
+    <input type="text" id="categoryInput" placeholder="e.g. Scale Goal, Non-Scale">
+
+    <label for="triggerTypeSelect">How should this be tracked?</label>
+    <select id="triggerTypeSelect" onchange="onTriggerTypeChange()">
+      <option value="manual">Manual — I'll mark it myself</option>
+      <option value="weight_target">Weight target — auto-checked against Settings</option>
+      <option value="metric_trigger">Single-day value — e.g. "Walk 1 mile" ever</option>
+      <option value="metric_sum">Total over a period — e.g. "5 miles in a week"</option>
+      <option value="metric_average">Average over a period — e.g. "8000 steps/day in a month"</option>
+      <option value="metric_count">Qualifying days in a period — e.g. "Gym 3x in a week"</option>
+    </select>
+
+    <div id="weightTargetFields" style="display:none;">
+      <label for="targetWeightInput">Target weight</label>
+      <input type="text" id="targetWeightInput" placeholder="e.g. 250">
+    </div>
+
+    <div id="metricFieldBlock" style="display:none;">
+      <label for="metricFieldSelect">Metric</label>
+      <select id="metricFieldSelect" onchange="onMetricFieldChange()">
+        <option value="distance">Distance</option>
+        <option value="steps">Steps</option>
+        <option value="duration">Duration (min)</option>
+        <option value="sleep_hours">Sleep (hours)</option>
+        <option value="gym">Gym visit (yes/no)</option>
+        <option value="water_goal_met">Water goal met (yes/no)</option>
+      </select>
+    </div>
+
+    <div id="conditionFields" class="row-2" style="display:none;">
+      <div>
+        <label for="metricOperatorSelect">Condition</label>
+        <select id="metricOperatorSelect">
+          <option value=">=">&ge;</option>
+          <option value="<=">&le;</option>
+          <option value=">">&gt;</option>
+          <option value="<">&lt;</option>
+          <option value="==">=</option>
+        </select>
+      </div>
+      <div>
+        <label for="metricValueInput">Value</label>
+        <input type="text" id="metricValueInput" placeholder="e.g. 3.1">
+      </div>
+    </div>
+
+    <div id="periodFields" class="row-2" style="display:none;">
+      <div>
+        <label for="periodDaysInput">Over how many days</label>
+        <input type="text" id="periodDaysInput" placeholder="7 for a week, 30 for a month">
+      </div>
+      <div id="requiredCountBlock" style="display:none;">
+        <label for="requiredCountInput">Qualifying days needed</label>
+        <input type="text" id="requiredCountInput" placeholder="e.g. 3">
+      </div>
+    </div>
+
+    <button onclick="saveAchievement()">Add Achievement</button>
+    <div class="result-box" id="saveResultBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>Your achievements</h2>
+    <div class="category-filter" id="categoryFilter"></div>
+    <div id="achievementsList">
+      <div class="empty-state">Loading...</div>
+    </div>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./calc.js"></script>
+<script src="./app.js"></script>
+<script>
+
+const METRIC_LABELS = { distance: "Distance", steps: "Steps", duration: "Duration", sleep_hours: "Sleep (hrs)", gym: "Gym visit", water_goal_met: "Water goal met" };
+const OPERATOR_SYMBOLS = { ">=": "&ge;", "<=": "&le;", ">": "&gt;", "<": "&lt;", "==": "=" };
+const BOOLEAN_FIELDS = ["gym", "water_goal_met"];
+
+let allAchievements = [];
+let activeCategory = "All";
+
+window.addEventListener("load", async function() {
+  const session = await requireAuth();
+  if (!session) return;
+  registerServiceWorker();
+  await loadAchievements();
+});
+
+function onTriggerTypeChange() {
+
+  const type = document.getElementById("triggerTypeSelect").value;
+
+  document.getElementById("weightTargetFields").style.display = (type === "weight_target") ? "block" : "none";
+
+  const needsMetricField = ["metric_trigger", "metric_sum", "metric_average", "metric_count"].includes(type);
+  document.getElementById("metricFieldBlock").style.display = needsMetricField ? "block" : "none";
+
+  const needsPeriod = ["metric_sum", "metric_average", "metric_count"].includes(type);
+  document.getElementById("periodFields").style.display = needsPeriod ? "flex" : "none";
+  document.getElementById("requiredCountBlock").style.display = (type === "metric_count") ? "block" : "none";
+
+  if (needsMetricField) onMetricFieldChange();
+
+}
+
+function onMetricFieldChange() {
+
+  const type = document.getElementById("triggerTypeSelect").value;
+  const field = document.getElementById("metricFieldSelect").value;
+  const isBoolean = BOOLEAN_FIELDS.includes(field);
+
+  // Sum/average never make sense for a yes/no field
+  if (isBoolean && (type === "metric_sum" || type === "metric_average")) {
+    document.getElementById("metricFieldSelect").value = "distance";
+    return onMetricFieldChange();
+  }
+
+  // Boolean fields don't need an operator/value — "occurred" is implicit
+  const showCondition = !isBoolean && type !== "metric_count" ? true : (!isBoolean && type === "metric_count");
+  document.getElementById("conditionFields").style.display = (!isBoolean) ? "flex" : "none";
+
+}
+
+async function saveAchievement() {
+
+  const label = document.getElementById("labelInput").value.trim();
+  const category = document.getElementById("categoryInput").value.trim();
+  const triggerType = document.getElementById("triggerTypeSelect").value;
+
+  if (!label) { showSaveResult(false, "Enter a goal first."); return; }
+
+  const record = {
+    label: label, category: category || null, trigger_type: triggerType,
+    trigger_field: null, trigger_operator: null, trigger_value: null,
+    period_days: null, required_count: null, date_earned: null
+  };
+
+  if (triggerType === "weight_target") {
+    const target = parseFloat(document.getElementById("targetWeightInput").value);
+    if (!target || isNaN(target)) { showSaveResult(false, "Enter a valid target weight."); return; }
+    record.trigger_field = "weight"; record.trigger_operator = "<="; record.trigger_value = target;
+  }
+
+  if (["metric_trigger", "metric_sum", "metric_average", "metric_count"].includes(triggerType)) {
+
+    const field = document.getElementById("metricFieldSelect").value;
+    const isBoolean = BOOLEAN_FIELDS.includes(field);
+    record.trigger_field = field;
+
+    if (isBoolean) {
+      record.trigger_operator = "=="; record.trigger_value = 1;
+    } else {
+      const value = parseFloat(document.getElementById("metricValueInput").value);
+      if (!value && value !== 0) { showSaveResult(false, "Enter a valid value."); return; }
+      record.trigger_operator = document.getElementById("metricOperatorSelect").value;
+      record.trigger_value = value;
+    }
+
+    if (["metric_sum", "metric_average", "metric_count"].includes(triggerType)) {
+      const period = parseInt(document.getElementById("periodDaysInput").value, 10);
+      if (!period || period <= 0) { showSaveResult(false, "Enter how many days this period covers."); return; }
+      record.period_days = period;
+    }
+
+    if (triggerType === "metric_count") {
+      const count = parseInt(document.getElementById("requiredCountInput").value, 10);
+      if (!count || count <= 0) { showSaveResult(false, "Enter how many qualifying days are needed."); return; }
+      record.required_count = count;
+    }
+
+  }
+
+  showSaveResult(true, "Saving...");
+
+  try {
+    const userId = await getCurrentUserId();
+    const { error } = await sb.from("achievements").insert(Object.assign({ user_id: userId }, record));
+    if (error) throw new Error(error.message);
+
+    showSaveResult(true, "Added \"" + label + "\".");
+    document.getElementById("labelInput").value = "";
+    document.getElementById("categoryInput").value = "";
+    document.getElementById("targetWeightInput").value = "";
+    document.getElementById("metricValueInput").value = "";
+    document.getElementById("periodDaysInput").value = "";
+    document.getElementById("requiredCountInput").value = "";
+
+    await loadAchievements();
+
+  } catch (err) {
+    showSaveResult(false, err.message);
+  }
+
+}
+
+function compareTrigger(value, operator, target) {
+  switch (operator) {
+    case ">=": return value >= target;
+    case "<=": return value <= target;
+    case ">": return value > target;
+    case "<": return value < target;
+    case "==": return value === target;
+    default: return false;
+  }
+}
+
+function dayStringsBack(count) {
+  const dates = [];
+  const cursor = new Date();
+  for (let i = 0; i < count; i++) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return dates;
+}
+
+async function loadAchievements() {
+
+  const listEl = document.getElementById("achievementsList");
+
+  try {
+
+    const userId = await getCurrentUserId();
+
+    const { data: achievements, error } = await sb
+      .from("achievements")
+      .select("*")
+      .order("date_earned", { ascending: false, nullsFirst: false })
+      .order("label");
+
+    if (error) throw new Error(error.message);
+
+    const { data: settings } = await sb.from("user_settings").select("current_weight").eq("user_id", userId).maybeSingle();
+    const currentWeight = settings ? settings.current_weight : null;
+
+    // weight_target — check against Settings' current weight
+    if (currentWeight) {
+      for (const a of achievements) {
+        if (a.trigger_type === "weight_target" && !a.date_earned && currentWeight <= a.trigger_value) {
+          const today = new Date().toISOString().slice(0, 10);
+          await sb.from("achievements").update({ date_earned: today }).eq("id", a.id);
+          a.date_earned = today;
+        }
+      }
+    }
+
+    // Everything else needs Progress history
+    const needsProgress = achievements.some(function(a) {
+      return !a.date_earned && ["metric_trigger", "metric_sum", "metric_average", "metric_count"].includes(a.trigger_type);
+    });
+
+    if (needsProgress) {
+
+      const { data: progressRows } = await sb
+        .from("progress_log")
+        .select("*")
+        .eq("user_id", userId)
+        .order("log_date");
+
+      const rows = progressRows || [];
+
+      for (const a of achievements) {
+
+        if (a.date_earned || !a.trigger_field) continue;
+
+        if (a.trigger_type === "metric_trigger") {
+
+          const qualifying = rows.find(function(row) {
+            const value = row[a.trigger_field];
+            if (value === null || value === undefined) return false;
+            return compareTrigger(value, a.trigger_operator, a.trigger_value);
+          });
+          if (qualifying) {
+            await sb.from("achievements").update({ date_earned: qualifying.log_date }).eq("id", a.id);
+            a.date_earned = qualifying.log_date;
+          }
+
+        } else if (a.trigger_type === "metric_sum" || a.trigger_type === "metric_average") {
+
+          const windowDates = dayStringsBack(a.period_days);
+          const windowRows = rows.filter(function(row) { return windowDates.includes(row.log_date); });
+          const values = windowRows.map(function(row) { return Number(row[a.trigger_field]) || 0; });
+          const sum = values.reduce(function(s, v) { return s + v; }, 0);
+          const metricValue = (a.trigger_type === "metric_sum") ? sum : (values.length > 0 ? sum / a.period_days : 0);
+
+          if (compareTrigger(metricValue, a.trigger_operator, a.trigger_value)) {
+            const today = new Date().toISOString().slice(0, 10);
+            await sb.from("achievements").update({ date_earned: today }).eq("id", a.id);
+            a.date_earned = today;
+          }
+
+        } else if (a.trigger_type === "metric_count") {
+
+          const windowDates = dayStringsBack(a.period_days);
+          const windowRows = rows.filter(function(row) { return windowDates.includes(row.log_date); });
+          const qualifyingDays = windowRows.filter(function(row) {
+            const value = row[a.trigger_field];
+            if (value === null || value === undefined) return false;
+            if (BOOLEAN_FIELDS.includes(a.trigger_field)) return !!value;
+            return compareTrigger(value, a.trigger_operator, a.trigger_value);
+          }).length;
+
+          if (qualifyingDays >= a.required_count) {
+            const today = new Date().toISOString().slice(0, 10);
+            await sb.from("achievements").update({ date_earned: today }).eq("id", a.id);
+            a.date_earned = today;
+          }
+
+        }
+
+      }
+
+    }
+
+    allAchievements = achievements;
+    renderCategoryFilter(achievements);
+    renderAchievements(filteredAchievements());
+
+  } catch (err) {
+    listEl.innerHTML = "<div class='empty-state'>" + escapeHtml(err.message) + "</div>";
+  }
+
+}
+
+function renderCategoryFilter(achievements) {
+
+  const categories = ["All", ...new Set(achievements.map(function(a) { return a.category; }).filter(Boolean))];
+  const container = document.getElementById("categoryFilter");
+
+  container.innerHTML = categories.map(function(cat) {
+    return "<button class='" + (cat === activeCategory ? "active" : "") + "' onclick='setCategory(" + jsStringLiteral(cat) + ")'>" + escapeHtml(cat) + "</button>";
+  }).join("");
+
+}
+
+function setCategory(cat) {
+  activeCategory = cat;
+  renderCategoryFilter(allAchievements);
+  renderAchievements(filteredAchievements());
+}
+
+function filteredAchievements() {
+  if (activeCategory === "All") return allAchievements;
+  return allAchievements.filter(function(a) { return a.category === activeCategory; });
+}
+
+function describeTrigger(a) {
+  if (a.trigger_type === "manual") return "Manual";
+  if (a.trigger_type === "weight_target") return "Weight &le; " + a.trigger_value;
+
+  const fieldLabel = METRIC_LABELS[a.trigger_field] || a.trigger_field;
+  const isBoolean = BOOLEAN_FIELDS.includes(a.trigger_field);
+  const condition = isBoolean ? fieldLabel : (fieldLabel + " " + (OPERATOR_SYMBOLS[a.trigger_operator] || a.trigger_operator) + " " + a.trigger_value);
+
+  if (a.trigger_type === "metric_trigger") return condition + " (any day)";
+  if (a.trigger_type === "metric_sum") return "Total " + fieldLabel + " " + (OPERATOR_SYMBOLS[a.trigger_operator] || a.trigger_operator) + " " + a.trigger_value + " over " + a.period_days + " days";
+  if (a.trigger_type === "metric_average") return "Avg " + fieldLabel + " " + (OPERATOR_SYMBOLS[a.trigger_operator] || a.trigger_operator) + " " + a.trigger_value + " over " + a.period_days + " days";
+  if (a.trigger_type === "metric_count") return a.required_count + "+ days of " + condition + " in " + a.period_days + " days";
+
+  return "";
+}
+
+function renderAchievements(achievements) {
+
+  const listEl = document.getElementById("achievementsList");
+
+  if (!achievements || achievements.length === 0) {
+    listEl.innerHTML = "<div class='empty-state'>No achievements in this category.</div>";
+    return;
+  }
+
+  const earned = achievements.filter(function(a) { return a.date_earned; });
+  const pending = achievements.filter(function(a) { return !a.date_earned; });
+
+  let html = "";
+  if (pending.length > 0) { html += "<div class='section-label'>In Progress</div>" + pending.map(renderRow).join(""); }
+  if (earned.length > 0) { html += "<div class='section-label'>Earned</div>" + earned.map(renderRow).join(""); }
+
+  listEl.innerHTML = html;
+
+}
+
+function renderRow(a) {
+
+  let rightSide;
+
+  if (a.date_earned) {
+    rightSide = "<span class='ach-earned-badge'>&#10003; " + a.date_earned + "</span>";
+  } else {
+    rightSide = "<button onclick='markAchieved(" + jsStringLiteral(a.id) + ")'>Mark as Achieved</button>";
+  }
+
+  return "<div class='ach-row'>" +
+    "<div class='ach-info'>" +
+      "<div class='ach-label'>" + escapeHtml(a.label) + "</div>" +
+      "<div class='ach-meta'>" + (a.category ? escapeHtml(a.category) + " &middot; " : "") + describeTrigger(a) + "</div>" +
+    "</div>" +
+    "<div class='ach-actions'>" + rightSide +
+      "<button class='ach-delete' onclick='deleteAchievement(" + jsStringLiteral(a.id) + ")'>&times;</button>" +
+    "</div>" +
+  "</div>";
+
+}
+
+async function markAchieved(id) {
+  const today = new Date().toISOString().slice(0, 10);
+  const { error } = await sb.from("achievements").update({ date_earned: today }).eq("id", id);
+  if (error) { alert("Could not update: " + error.message); return; }
+  await loadAchievements();
+}
+
+async function deleteAchievement(id) {
+  if (!confirm("Delete this achievement? This can't be undone.")) return;
+  const { error } = await sb.from("achievements").delete().eq("id", id);
+  if (error) { alert("Could not delete: " + error.message); return; }
+  await loadAchievements();
+}
+
+function showSaveResult(ok, message) {
+  const box = document.getElementById("saveResultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>
