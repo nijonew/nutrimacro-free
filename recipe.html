@@ -110,6 +110,53 @@
     </button>
 
     <div class="helper" style="margin-bottom:0; margin-top:10px;">Ingredients come from your Foods list, or search USDA if something's missing.</div>
+
+    <button class="secondary" id="quickCreateToggleBtn" style="margin-top:10px;" onclick="toggleQuickCreate()">+ Quick Create a Food</button>
+
+    <div id="quickCreateForm" style="display:none; margin-top:12px;">
+      <label for="qcName">Food Name</label>
+      <input type="text" id="qcName" placeholder="e.g. Homemade Granola">
+      <div class="row-2">
+        <div>
+          <label for="qcServingSize">Serving Size</label>
+          <input type="text" id="qcServingSize" placeholder="e.g. 100">
+        </div>
+        <div>
+          <label for="qcServingUnit">Unit</label>
+          <select id="qcServingUnit">
+            <option value="g">g</option>
+            <option value="kg">kg</option>
+            <option value="oz">oz</option>
+            <option value="lb">lb</option>
+            <option value="ml">ml</option>
+            <option value="l">l</option>
+            <option value="piece">piece(s)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row-2">
+        <div>
+          <label for="qcCalories">Calories</label>
+          <input type="text" id="qcCalories" placeholder="0">
+        </div>
+        <div>
+          <label for="qcProtein">Protein (g)</label>
+          <input type="text" id="qcProtein" placeholder="0">
+        </div>
+      </div>
+      <div class="row-2">
+        <div>
+          <label for="qcFat">Fat (g)</label>
+          <input type="text" id="qcFat" placeholder="0">
+        </div>
+        <div>
+          <label for="qcCarbs">Carbs (g)</label>
+          <input type="text" id="qcCarbs" placeholder="0">
+        </div>
+      </div>
+      <button onclick="quickCreateFood()">Create &amp; Add Ingredient</button>
+      <div class="result-box" id="quickCreateResultBox"></div>
+    </div>
   </div>
 
   <div class="card" id="ingredientListCard" style="display:none;">
@@ -514,14 +561,14 @@ function showSaveResult(ok, message) {
 function showSummary(summary) {
 
   document.getElementById("summaryBlock").style.display = "block";
-  document.getElementById("sumWeight").textContent = summary.totalWeight + (summary.weightIsPartial ? "" : "g");
-  document.getElementById("sumCalories").textContent = summary.calories;
-  document.getElementById("sumProtein").textContent = summary.protein + "g";
-  document.getElementById("sumFat").textContent = summary.fat + "g";
-  document.getElementById("sumCarbs").textContent = summary.carbs + "g";
-  document.getElementById("sumFiber").textContent = summary.fiber + "g";
-  document.getElementById("sumCalPerGram").textContent = summary.calPerGram;
-  document.getElementById("sumProteinPerGram").textContent = summary.proteinPerGram;
+  document.getElementById("sumWeight").textContent = formatAmountForDisplay(summary.totalWeight) + (summary.weightIsPartial ? "" : "g");
+  document.getElementById("sumCalories").textContent = formatAmountForDisplay(summary.calories);
+  document.getElementById("sumProtein").textContent = formatAmountForDisplay(summary.protein) + "g";
+  document.getElementById("sumFat").textContent = formatAmountForDisplay(summary.fat) + "g";
+  document.getElementById("sumCarbs").textContent = formatAmountForDisplay(summary.carbs) + "g";
+  document.getElementById("sumFiber").textContent = formatAmountForDisplay(summary.fiber) + "g";
+  document.getElementById("sumCalPerGram").textContent = formatAmountForDisplay(summary.calPerGram);
+  document.getElementById("sumProteinPerGram").textContent = formatAmountForDisplay(summary.proteinPerGram);
 
 }
 

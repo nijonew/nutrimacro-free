@@ -94,7 +94,7 @@ window.addEventListener("load", async function() {
   const session = await requireAuth();
   if (!session) return;
 
-  document.getElementById("dateInput").valueAsDate = new Date();
+  document.getElementById("dateInput").value = localDateString();
   registerServiceWorker();
   loadDay();
 
@@ -108,7 +108,7 @@ function shiftDate(days) {
   const input = document.getElementById("dateInput");
   const current = new Date(input.value + "T00:00:00");
   current.setDate(current.getDate() + days);
-  input.valueAsDate = current;
+  input.value = localDateString(current);
   loadDay();
 }
 
@@ -162,7 +162,7 @@ function renderEntries(entries) {
 
     const setsHtml = sets.map(function(s) {
       return "<div class='set-row'>" +
-        "<span>Set " + s.setNumber + ": " + s.weight + s.unit + " &times; " + s.reps + "</span>" +
+        "<span>Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps + "</span>" +
         (s.notes ? "<span style='color:var(--ink-soft);'>" + escapeHtml(s.notes) + "</span>" : "") +
       "</div>";
     }).join("");

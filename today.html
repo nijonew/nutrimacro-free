@@ -195,14 +195,14 @@ window.addEventListener("load", async function() {
   const session = await requireAuth();
   if (!session) return;
 
-  document.getElementById("dateInput").valueAsDate = new Date();
+  document.getElementById("dateInput").value = localDateString();
   registerServiceWorker();
   loadDay();
 
 });
 
 function todayString() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateString();
 }
 
 function onDateChange() {
@@ -213,7 +213,7 @@ function shiftDate(days) {
   const input = document.getElementById("dateInput");
   const current = new Date(input.value + "T00:00:00");
   current.setDate(current.getDate() + days);
-  input.valueAsDate = current;
+  input.value = localDateString(current);
   loadDay();
 }
 
@@ -244,12 +244,12 @@ function loadDay() {
 }
 
 function setTotals(totals) {
-  document.getElementById("totalCalories").textContent = totals.calories;
-  document.getElementById("totalProtein").textContent = totals.protein;
-  document.getElementById("totalCarbs").textContent = totals.carbs;
-  document.getElementById("totalFat").textContent = totals.fat;
-  document.getElementById("totalFiber").textContent = totals.fiber;
-  document.getElementById("totalNetCarbs").textContent = totals.netCarbs;
+  document.getElementById("totalCalories").textContent = formatAmountForDisplay(totals.calories);
+  document.getElementById("totalProtein").textContent = formatAmountForDisplay(totals.protein);
+  document.getElementById("totalCarbs").textContent = formatAmountForDisplay(totals.carbs);
+  document.getElementById("totalFat").textContent = formatAmountForDisplay(totals.fat);
+  document.getElementById("totalFiber").textContent = formatAmountForDisplay(totals.fiber);
+  document.getElementById("totalNetCarbs").textContent = formatAmountForDisplay(totals.netCarbs);
 
   const pct = calculateMacroPercents(totals);
   document.getElementById("pctProtein").textContent = totals.calories ? pct.protein + "%" : "";
@@ -295,10 +295,10 @@ function renderGroupedEntries(entries, viewedDate) {
         "</div>" +
         "<div class='entry-meta'>" +
           formatAmountForDisplay(e.amount) + " " + escapeHtml(e.unit) + " &middot; " +
-          e.calories + " cal &middot; " +
-          "<span class='protein'>" + e.protein + "g P</span> &middot; " +
-          "<span class='carbs'>" + e.carbs + "g C</span> &middot; " +
-          "<span class='fat'>" + e.fat + "g F</span>" +
+          formatAmountForDisplay(e.calories) + " cal &middot; " +
+          "<span class='protein'>" + formatAmountForDisplay(e.protein) + "g P</span> &middot; " +
+          "<span class='carbs'>" + formatAmountForDisplay(e.carbs) + "g C</span> &middot; " +
+          "<span class='fat'>" + formatAmountForDisplay(e.fat) + "g F</span>" +
         "</div>" +
         (e.notes ? "<div class='entry-meta'>" + escapeHtml(e.notes) + "</div>" : "") +
       "</div>";

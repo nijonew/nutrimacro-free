@@ -315,7 +315,7 @@ function dayStringsBack(count) {
   const dates = [];
   const cursor = new Date();
   for (let i = 0; i < count; i++) {
-    dates.push(cursor.toISOString().slice(0, 10));
+    dates.push(localDateString(cursor));
     cursor.setDate(cursor.getDate() - 1);
   }
   return dates;
@@ -344,7 +344,7 @@ async function loadAchievements() {
     if (currentWeight) {
       for (const a of achievements) {
         if (a.trigger_type === "weight_target" && !a.date_earned && currentWeight <= a.trigger_value) {
-          const today = new Date().toISOString().slice(0, 10);
+          const today = localDateString();
           await sb.from("achievements").update({ date_earned: today }).eq("id", a.id);
           a.date_earned = today;
         }
@@ -391,7 +391,7 @@ async function loadAchievements() {
           const metricValue = (a.trigger_type === "metric_sum") ? sum : (values.length > 0 ? sum / a.period_days : 0);
 
           if (compareTrigger(metricValue, a.trigger_operator, a.trigger_value)) {
-            const today = new Date().toISOString().slice(0, 10);
+            const today = localDateString();
             await sb.from("achievements").update({ date_earned: today }).eq("id", a.id);
             a.date_earned = today;
           }
@@ -408,7 +408,7 @@ async function loadAchievements() {
           }).length;
 
           if (qualifyingDays >= a.required_count) {
-            const today = new Date().toISOString().slice(0, 10);
+            const today = localDateString();
             await sb.from("achievements").update({ date_earned: today }).eq("id", a.id);
             a.date_earned = today;
           }
@@ -510,7 +510,7 @@ function renderRow(a) {
 }
 
 async function markAchieved(id) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateString();
   const { error } = await sb.from("achievements").update({ date_earned: today }).eq("id", id);
   if (error) { alert("Could not update: " + error.message); return; }
   await loadAchievements();

@@ -69,6 +69,22 @@ function registerServiceWorker() {
   }
 }
 
+/**
+ * Returns a YYYY-MM-DD string for the given Date using LOCAL calendar
+ * components. Fixes a real bug: `input.valueAsDate = new Date()` and
+ * `date.toISOString().slice(0,10)` both convert through UTC internally,
+ * which silently rolls the date forward for anyone west of UTC (all of
+ * the US) once it's evening — logging "today" would land on tomorrow.
+ * This is the one safe way to get/set a date input's "today".
+ */
+function localDateString(date) {
+  date = date || new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return year + "-" + month + "-" + day;
+}
+
 // ============================================================
 // apiGet / apiPost — compatibility shim.
 // Every existing page keeps calling these exactly as before;
@@ -946,9 +962,14 @@ function jsStringLiteral(str) {
 // Amount display formatting — unchanged
 // ============================================================
 
+/**
+ * Rounds a number to at most 1 decimal place for DISPLAY only (never
+ * affects what's stored or used in macro math elsewhere). An integer
+ * value displays as a plain integer, not "12.0".
+ */
 function formatAmountForDisplay(amount) {
   const num = Number(amount);
   if (isNaN(num)) return amount;
-  const rounded = Math.round(num * 1000) / 1000;
+  const rounded = Math.round(num * 10) / 10;
   return rounded.toString();
 }

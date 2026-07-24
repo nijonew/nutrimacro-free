@@ -5,125 +5,397 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Reports</title>
 <link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#0B1626">
+<meta name="theme-color" content="#1C2530">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./style.css">
+<style>
+
+  .day-block { margin-bottom: 18px; }
+  .day-block:last-child { margin-bottom: 0; }
+
+  .day-block h3 {
+    font-family: 'Manrope', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    margin: 0 0 6px;
+  }
+
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  .report-table th, .report-table td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .report-table th {
+    color: var(--ink-soft);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+
+  .day-total {
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  .averages-box {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 13px;
+    margin-top: 10px;
+  }
+
+</style>
 </head>
 <body>
 
 <header>
   <div class="titles">
-    <div class="eyebrow">Account</div>
+    <div class="eyebrow">Overview</div>
     <h1>Reports</h1>
   </div>
-  <a class="back" href="./settings.html">&larr; Settings</a>
+  <a class="back" href="./index.html">&larr; Home</a>
 </header>
 
 <main>
 
   <div class="card">
-    <h2>Email me a report</h2>
-    <div class="helper" style="margin-top:0;">Generates a PDF and emails it to the address on your account.</div>
-
-    <div class="segmented">
-      <button id="typeNutritionBtn" class="active" onclick="setReportType('nutrition')">Nutrition</button>
-      <button id="typeWorkoutBtn" onclick="setReportType('workout')">Workout</button>
-      <button id="typeBothBtn" onclick="setReportType('both')">Both</button>
-    </div>
-
+    <h2>Date range</h2>
     <div class="row-2">
       <div>
-        <label for="startDateInput">Start Date</label>
+        <label for="startDateInput">Start</label>
         <input type="date" id="startDateInput">
       </div>
       <div>
-        <label for="endDateInput">End Date</label>
+        <label for="endDateInput">End</label>
         <input type="date" id="endDateInput">
       </div>
     </div>
 
-    <button onclick="sendReport()">Email My Report</button>
-    <div class="result-box" id="resultBox"></div>
+    <label>Include</label>
+    <div class="segmented">
+      <button class="active" id="typeNutritionBtn" onclick="setReportType('nutrition')">Nutrition</button>
+      <button id="typeWorkoutBtn" onclick="setReportType('workout')">Workouts</button>
+      <button id="typeBothBtn" onclick="setReportType('both')">Both</button>
+    </div>
+
+    <button onclick="generateReport()">Generate Report</button>
+    <div class="result-box" id="statusBox"></div>
+  </div>
+
+  <div class="card" id="resultsCard" style="display:none;">
+    <h2>Results</h2>
+    <button class="secondary" id="downloadBtn" style="margin-bottom:14px;" onclick="downloadPdf()">Download PDF</button>
+    <div id="resultsArea"></div>
   </div>
 
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./calc.js"></script>
 <script src="./app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
 
 let reportType = "nutrition";
+let lastReport = null; // { startDate, endDate, reportType, nutritionDays, workoutDays }
 
-window.addEventListener("load", function() {
+window.addEventListener("load", async function() {
 
-  if (!isConfigured()) {
-    window.location.href = "./index.html";
-    return;
-  }
+  const session = await requireAuth();
+  if (!session) return;
 
   registerServiceWorker();
 
   const today = new Date();
   const weekAgo = new Date();
-  weekAgo.setDate(today.getDate() - 6);
+  weekAgo.setDate(weekAgo.getDate() - 6);
 
-  document.getElementById("endDateInput").valueAsDate = today;
-  document.getElementById("startDateInput").valueAsDate = weekAgo;
+  document.getElementById("endDateInput").value = localDateString(today);
+  document.getElementById("startDateInput").value = localDateString(weekAgo);
 
 });
 
 function setReportType(type) {
-
   reportType = type;
-
-  document.getElementById("typeNutritionBtn").className = (type === "nutrition") ? "active" : "";
-  document.getElementById("typeWorkoutBtn").className = (type === "workout") ? "active" : "";
-  document.getElementById("typeBothBtn").className = (type === "both") ? "active" : "";
-
+  document.getElementById("typeNutritionBtn").classList.toggle("active", type === "nutrition");
+  document.getElementById("typeWorkoutBtn").classList.toggle("active", type === "workout");
+  document.getElementById("typeBothBtn").classList.toggle("active", type === "both");
 }
 
-function sendReport() {
+function dateRange(startStr, endStr) {
+  const dates = [];
+  let cursor = new Date(startStr + "T00:00:00");
+  const end = new Date(endStr + "T00:00:00");
+  while (cursor <= end) {
+    dates.push(localDateString(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
+async function generateReport() {
 
   const startDate = document.getElementById("startDateInput").value;
   const endDate = document.getElementById("endDateInput").value;
-  const box = document.getElementById("resultBox");
 
-  if (!startDate || !endDate) {
-    box.className = "result-box error";
-    box.textContent = "Choose both a start and end date.";
-    return;
-  }
+  if (!startDate || !endDate) { showStatus(false, "Choose a start and end date."); return; }
+  if (startDate > endDate) { showStatus(false, "Start date must be before end date."); return; }
 
-  if (startDate > endDate) {
-    box.className = "result-box error";
-    box.textContent = "Start date must be before end date.";
-    return;
-  }
+  showStatus(true, "Building report...");
 
-  box.className = "result-box ok";
-  box.textContent = "Building your report and sending it — this can take a little while for longer date ranges...";
+  const dates = dateRange(startDate, endDate);
+  const nutritionDays = [];
+  const workoutDays = [];
 
-  apiPost("sendReport", {
-    reportType: reportType,
-    startDate: startDate,
-    endDate: endDate
-  }).then(function(json) {
+  for (const date of dates) {
 
-    if (!json.success) {
-      box.className = "result-box error";
-      box.textContent = json.error;
-      return;
+    if (reportType === "nutrition" || reportType === "both") {
+      const json = await apiGet("getDailyLogEntries", { date: date });
+      if (json.success && json.data.entries.length > 0) {
+        nutritionDays.push({ date: date, entries: json.data.entries, totals: json.data.totals });
+      }
     }
 
-    box.className = "result-box ok";
-    box.textContent = "Sent to " + json.data.email + ".";
+    if (reportType === "workout" || reportType === "both") {
+      const json = await apiGet("getWorkoutEntries", { date: date });
+      if (json.success && json.data.entries.length > 0) {
+        workoutDays.push({ date: date, entries: json.data.entries });
+      }
+    }
 
-  }).catch(function(err) {
-    box.className = "result-box error";
-    box.textContent = "Could not reach the backend: " + err.message;
+  }
+
+  lastReport = { startDate: startDate, endDate: endDate, reportType: reportType, nutritionDays: nutritionDays, workoutDays: workoutDays };
+
+  renderReport(lastReport);
+  showStatus(true, "Report ready.");
+
+}
+
+function computeAverages(nutritionDays) {
+  const sums = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  nutritionDays.forEach(function(day) {
+    sums.calories += Number(day.totals.calories) || 0;
+    sums.protein += Number(day.totals.protein) || 0;
+    sums.carbs += Number(day.totals.carbs) || 0;
+    sums.fat += Number(day.totals.fat) || 0;
   });
+  const count = nutritionDays.length || 1;
+  return {
+    calories: Math.round(sums.calories / count),
+    protein: Math.round(sums.protein / count),
+    carbs: Math.round(sums.carbs / count),
+    fat: Math.round(sums.fat / count)
+  };
+}
 
+function renderReport(report) {
+
+  document.getElementById("resultsCard").style.display = "block";
+  const area = document.getElementById("resultsArea");
+
+  let html = "";
+
+  if (report.reportType === "nutrition" || report.reportType === "both") {
+
+    if (report.nutritionDays.length === 0) {
+      html += "<div class='empty-state'>No nutrition entries logged in this date range.</div>";
+    } else {
+
+      report.nutritionDays.forEach(function(day) {
+
+        const rows = day.entries.map(function(e) {
+          return "<tr><td>" + escapeHtml(e.meal) + "</td><td>" + escapeHtml(e.name) + "</td><td>" +
+            formatAmountForDisplay(e.amount) + " " + escapeHtml(e.unit) + "</td><td>" + formatAmountForDisplay(e.calories) +
+            "</td><td>" + formatAmountForDisplay(e.protein) + "</td><td>" + formatAmountForDisplay(e.carbs) + "</td><td>" + formatAmountForDisplay(e.fat) + "</td></tr>";
+        }).join("");
+
+        html += "<div class='day-block'>" +
+          "<h3>" + day.date + "</h3>" +
+          "<table class='report-table'><thead><tr><th>Meal</th><th>Item</th><th>Amount</th><th>Cal</th><th>Prot</th><th>Carb</th><th>Fat</th></tr></thead>" +
+          "<tbody>" + rows + "</tbody></table>" +
+          "<div class='day-total'>Day total: " + formatAmountForDisplay(day.totals.calories) + " cal, " + formatAmountForDisplay(day.totals.protein) +
+          "g protein, " + formatAmountForDisplay(day.totals.carbs) + "g carbs, " + formatAmountForDisplay(day.totals.fat) + "g fat</div>" +
+        "</div>";
+
+      });
+
+      const avg = computeAverages(report.nutritionDays);
+      html += "<div class='averages-box'><b>Period Averages</b> (" + report.nutritionDays.length + " logged day(s))<br>" +
+        "Calories: " + avg.calories + " | Protein: " + avg.protein + "g | Carbs: " + avg.carbs + "g | Fat: " + avg.fat + "g</div>";
+
+    }
+
+  }
+
+  if (report.reportType === "workout" || report.reportType === "both") {
+
+    html += "<h2 style='margin-top:20px;'>Workouts</h2>";
+
+    if (report.workoutDays.length === 0) {
+      html += "<div class='empty-state'>No workouts logged in this date range.</div>";
+    } else {
+
+      report.workoutDays.forEach(function(day) {
+
+        const rows = day.entries.map(function(e) {
+          return "<tr><td>" + escapeHtml(e.exercise) + "</td><td>" + e.setNumber + "</td><td>" +
+            formatAmountForDisplay(e.weight) + e.unit + "</td><td>" + e.reps + "</td><td>" + escapeHtml(e.notes || "") + "</td></tr>";
+        }).join("");
+
+        html += "<div class='day-block'>" +
+          "<h3>" + day.date + "</h3>" +
+          "<table class='report-table'><thead><tr><th>Exercise</th><th>Set</th><th>Weight</th><th>Reps</th><th>Notes</th></tr></thead>" +
+          "<tbody>" + rows + "</tbody></table>" +
+        "</div>";
+
+      });
+
+    }
+
+  }
+
+  area.innerHTML = html;
+
+}
+
+function downloadPdf() {
+
+  if (!lastReport) return;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  doc.setFontSize(18);
+  doc.text("Nutrition & Workout Report", 14, 18);
+  doc.setFontSize(11);
+  doc.setTextColor(100);
+  doc.text(lastReport.startDate + " to " + lastReport.endDate, 14, 25);
+
+  let y = 34;
+
+  if (lastReport.reportType === "nutrition" || lastReport.reportType === "both") {
+
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text("Nutrition", 14, y);
+    y += 6;
+
+    if (lastReport.nutritionDays.length === 0) {
+      doc.setFontSize(11);
+      doc.text("No nutrition entries logged in this date range.", 14, y);
+      y += 8;
+    } else {
+
+      lastReport.nutritionDays.forEach(function(day) {
+
+        doc.setFontSize(12);
+        doc.text(day.date, 14, y);
+        y += 4;
+
+        const body = day.entries.map(function(e) {
+          return [e.meal, e.name, formatAmountForDisplay(e.amount) + " " + e.unit, formatAmountForDisplay(e.calories), formatAmountForDisplay(e.protein), formatAmountForDisplay(e.carbs), formatAmountForDisplay(e.fat)];
+        });
+
+        doc.autoTable({
+          startY: y,
+          head: [["Meal", "Item", "Amount", "Cal", "Prot", "Carb", "Fat"]],
+          body: body,
+          styles: { fontSize: 8 },
+          margin: { left: 14, right: 14 }
+        });
+
+        y = doc.lastAutoTable.finalY + 4;
+        doc.setFontSize(9);
+        doc.text(
+          "Day total: " + formatAmountForDisplay(day.totals.calories) + " cal, " + formatAmountForDisplay(day.totals.protein) + "g protein, " +
+          formatAmountForDisplay(day.totals.carbs) + "g carbs, " + formatAmountForDisplay(day.totals.fat) + "g fat", 14, y
+        );
+        y += 10;
+
+        if (y > 260) { doc.addPage(); y = 18; }
+
+      });
+
+      const avg = computeAverages(lastReport.nutritionDays);
+      doc.setFontSize(10);
+      doc.text(
+        "Period Averages (" + lastReport.nutritionDays.length + " logged day(s)): " +
+        avg.calories + " cal | " + avg.protein + "g protein | " + avg.carbs + "g carbs | " + avg.fat + "g fat",
+        14, y
+      );
+      y += 12;
+
+    }
+
+  }
+
+  if (lastReport.reportType === "workout" || lastReport.reportType === "both") {
+
+    if (y > 250) { doc.addPage(); y = 18; }
+
+    doc.setFontSize(14);
+    doc.text("Workouts", 14, y);
+    y += 6;
+
+    if (lastReport.workoutDays.length === 0) {
+      doc.setFontSize(11);
+      doc.text("No workouts logged in this date range.", 14, y);
+    } else {
+
+      lastReport.workoutDays.forEach(function(day) {
+
+        doc.setFontSize(12);
+        doc.text(day.date, 14, y);
+        y += 4;
+
+        const body = day.entries.map(function(e) {
+          return [e.exercise, e.setNumber, formatAmountForDisplay(e.weight) + e.unit, e.reps, e.notes || ""];
+        });
+
+        doc.autoTable({
+          startY: y,
+          head: [["Exercise", "Set", "Weight", "Reps", "Notes"]],
+          body: body,
+          styles: { fontSize: 8 },
+          margin: { left: 14, right: 14 }
+        });
+
+        y = doc.lastAutoTable.finalY + 10;
+        if (y > 260) { doc.addPage(); y = 18; }
+
+      });
+
+    }
+
+  }
+
+  doc.save("Report-" + lastReport.startDate + "-to-" + lastReport.endDate + ".pdf");
+
+}
+
+function showStatus(ok, message) {
+  const box = document.getElementById("statusBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str);
+  return div.innerHTML;
 }
 
 </script>

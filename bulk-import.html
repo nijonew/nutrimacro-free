@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Bulk Import Foods</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+<style>
+
+  .result-item.checkable {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .result-item.checkable input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+  }
+
+  .import-status-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .import-status-row:last-child { border-bottom: none; }
+  .import-status-row.ok { color: var(--success); }
+  .import-status-row.fail { color: var(--error); }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Foods</div>
+    <h1>Bulk Import</h1>
+  </div>
+  <a class="back" href="./index.html">&larr; Home</a>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Search USDA</h2>
+    <div class="helper" style="margin-top:-2px;">Good for pulling in several known grocery items or restaurant menu items from one brand at once — e.g. search "Chick-fil-A" or "Kirkland".</div>
+    <label for="searchInput">Search term</label>
+    <input type="text" id="searchInput" placeholder="e.g. Chick-fil-A, Kirkland, Trader Joe's..." onkeypress="if(event.key==='Enter'){event.preventDefault();search();}">
+    <button onclick="search()">Search</button>
+  </div>
+
+  <div class="card" id="resultsCard" style="display:none;">
+    <h2>Results</h2>
+    <div class="helper" style="margin-top:-2px;">Select everything you want, then import them all in one action.</div>
+    <button class="secondary" id="selectAllBtn" style="margin-bottom:10px;" onclick="toggleSelectAll()">Select All</button>
+    <div class="result-list" id="searchResults" style="max-height:400px;"></div>
+    <button id="importBtn" style="margin-top:14px; display:none;" onclick="importSelected()">Import Selected (<span id="selectedCount">0</span>)</button>
+    <div class="result-box" id="importResultBox"></div>
+  </div>
+
+  <div class="card" id="importLogCard" style="display:none;">
+    <h2>Import Results</h2>
+    <div id="importLog"></div>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./calc.js"></script>
+<script src="./app.js"></script>
+<script>
+
+let currentResults = [];
+let selectedIds = new Set();
+let allSelected = false;
+
+window.addEventListener("load", async function() {
+  const session = await requireAuth();
+  if (!session) return;
+  registerServiceWorker();
+});
+
+function search() {
+
+  const query = document.getElementById("searchInput").value.trim();
+  if (query.length < 2) return;
+
+  const resultsCard = document.getElementById("resultsCard");
+  const resultsEl = document.getElementById("searchResults");
+
+  resultsCard.style.display = "block";
+  resultsEl.innerHTML = "<div class='empty-state'>Searching USDA...</div>";
+  document.getElementById("importBtn").style.display = "none";
+  document.getElementById("importLogCard").style.display = "none";
+  selectedIds.clear();
+  allSelected = false;
+
+  apiGet("searchFoods", { query: query }).then(function(json) {
+
+    if (!json.success) {
+      resultsEl.innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
+      return;
+    }
+
+    currentResults = json.data;
+
+    if (currentResults.length === 0) {
+      resultsEl.innerHTML = "<div class='empty-state'>No results found.</div>";
+      return;
+    }
+
+    renderResults();
+
+  }).catch(function(err) {
+    resultsEl.innerHTML = "<div class='empty-state'>Could not reach USDA: " + escapeHtml(err.message) + "</div>";
+  });
+
+}
+
+function renderResults() {
+
+  const resultsEl = document.getElementById("searchResults");
+
+  resultsEl.innerHTML = currentResults.map(function(food) {
+    return "<div class='result-item checkable'>" +
+      "<input type='checkbox' id='chk_" + food.fdcId + "' " + (selectedIds.has(food.fdcId) ? "checked" : "") +
+        " onchange='toggleSelected(" + food.fdcId + ", this.checked)'>" +
+      "<label for='chk_" + food.fdcId + "' style='flex:1; margin:0; cursor:pointer;'>" +
+        "<div class='item-name'>" + escapeHtml(food.description) + "</div>" +
+        "<div class='item-meta'>" + escapeHtml(food.dataType) + (food.brand ? " &middot; " + escapeHtml(food.brand) : "") + "</div>" +
+      "</label>" +
+    "</div>";
+  }).join("");
+
+  updateSelectedCount();
+
+}
+
+function toggleSelected(fdcId, checked) {
+  if (checked) selectedIds.add(fdcId); else selectedIds.delete(fdcId);
+  updateSelectedCount();
+}
+
+function toggleSelectAll() {
+  allSelected = !allSelected;
+  selectedIds.clear();
+  if (allSelected) currentResults.forEach(function(f) { selectedIds.add(f.fdcId); });
+  document.getElementById("selectAllBtn").textContent = allSelected ? "Deselect All" : "Select All";
+  renderResults();
+}
+
+function updateSelectedCount() {
+  const count = selectedIds.size;
+  document.getElementById("selectedCount").textContent = count;
+  document.getElementById("importBtn").style.display = count > 0 ? "block" : "none";
+}
+
+async function importSelected() {
+
+  const ids = Array.from(selectedIds);
+  const importBtn = document.getElementById("importBtn");
+  const logCard = document.getElementById("importLogCard");
+  const logEl = document.getElementById("importLog");
+
+  importBtn.disabled = true;
+  showImportResult(true, "Importing " + ids.length + " item(s)...");
+
+  logCard.style.display = "block";
+  logEl.innerHTML = "";
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const fdcId of ids) {
+
+    const food = currentResults.find(function(f) { return f.fdcId === fdcId; });
+    const json = await apiPost("importFood", { fdcId: fdcId });
+
+    const row = document.createElement("div");
+    row.className = "import-status-row " + (json.success ? "ok" : "fail");
+    row.innerHTML = "<span>" + escapeHtml(food ? food.description : fdcId) + "</span><span>" +
+      (json.success ? "&#10003; Imported" : escapeHtml(json.error)) + "</span>";
+    logEl.appendChild(row);
+
+    if (json.success) successCount++; else failCount++;
+
+  }
+
+  importBtn.disabled = false;
+  showImportResult(true, "Done — " + successCount + " imported" + (failCount > 0 ? ", " + failCount + " failed (likely already in your Foods list)" : "") + ".");
+
+  selectedIds.clear();
+  allSelected = false;
+  document.getElementById("selectAllBtn").textContent = "Select All";
+  renderResults();
+
+}
+
+function showImportResult(ok, message) {
+  const box = document.getElementById("importResultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>

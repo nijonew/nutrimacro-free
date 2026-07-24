@@ -85,23 +85,9 @@
 <main>
 
   <div class="card">
-    <h2>When</h2>
-    <div class="row-2">
-      <div>
-        <label for="dateInput">Date</label>
-        <input type="date" id="dateInput">
-      </div>
-      <div>
-        <label for="defaultMealSelect">Default Meal</label>
-        <select id="defaultMealSelect">
-          <option>Breakfast</option>
-          <option>Lunch</option>
-          <option>Dinner</option>
-          <option>Snack</option>
-        </select>
-      </div>
-    </div>
-    <div class="helper">Applies to newly added items. Each item below can still be changed individually.</div>
+    <h2>Date</h2>
+    <input type="date" id="dateInput">
+    <div class="helper" style="margin-bottom:0;">New items default to a meal based on the time of day — each one can still be changed individually below.</div>
   </div>
 
   <div class="card" id="favoriteMealsCard" style="display:none;">
@@ -139,7 +125,54 @@
 
     <button class="secondary" id="scanBarcodeBtn" style="margin-top:10px;" onclick="openBarcodeScanner()">&#128247; Scan Barcode</button>
 
-    <a class="create-shortcut" id="createShortcut" href="./add-food.html">+ Create a New Food</a>
+    <a class="create-shortcut" id="createShortcut" href="./recipe.html" style="display:none;">+ Create a New Recipe</a>
+
+    <button class="secondary" id="quickCreateToggleBtn" style="margin-top:10px;" onclick="toggleQuickCreate()">+ Quick Create a Food</button>
+
+    <div id="quickCreateForm" style="display:none; margin-top:12px;">
+      <label for="qcName">Food Name</label>
+      <input type="text" id="qcName" placeholder="e.g. Homemade Granola">
+      <div class="row-2">
+        <div>
+          <label for="qcServingSize">Serving Size</label>
+          <input type="text" id="qcServingSize" placeholder="e.g. 100">
+        </div>
+        <div>
+          <label for="qcServingUnit">Unit</label>
+          <select id="qcServingUnit">
+            <option value="g">g</option>
+            <option value="kg">kg</option>
+            <option value="oz">oz</option>
+            <option value="lb">lb</option>
+            <option value="ml">ml</option>
+            <option value="l">l</option>
+            <option value="piece">piece(s)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row-2">
+        <div>
+          <label for="qcCalories">Calories</label>
+          <input type="text" id="qcCalories" placeholder="0">
+        </div>
+        <div>
+          <label for="qcProtein">Protein (g)</label>
+          <input type="text" id="qcProtein" placeholder="0">
+        </div>
+      </div>
+      <div class="row-2">
+        <div>
+          <label for="qcFat">Fat (g)</label>
+          <input type="text" id="qcFat" placeholder="0">
+        </div>
+        <div>
+          <label for="qcCarbs">Carbs (g)</label>
+          <input type="text" id="qcCarbs" placeholder="0">
+        </div>
+      </div>
+      <button onclick="quickCreateFood()">Create &amp; Add to Cart</button>
+      <div class="result-box" id="quickCreateResultBox"></div>
+    </div>
   </div>
 
   <div id="scannerOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:2000; flex-direction:column; align-items:center; justify-content:center;">
@@ -213,7 +246,7 @@ window.addEventListener("load", async function() {
   const session = await requireAuth();
   if (!session) return;
 
-  document.getElementById("dateInput").valueAsDate = new Date();
+  document.getElementById("dateInput").value = localDateString();
   registerServiceWorker();
 
   apiGet("getFoodNames").then(function(json) {
@@ -330,8 +363,9 @@ function setType(type) {
 
   document.getElementById("typeFoodBtn").classList.toggle("active", type === "Food");
   document.getElementById("typeRecipeBtn").classList.toggle("active", type === "Recipe");
-  document.getElementById("createShortcut").href = (type === "Food") ? "./add-food.html" : "./recipe.html";
-  document.getElementById("createShortcut").textContent = (type === "Food") ? "+ Create a New Food" : "+ Create a New Recipe";
+  document.getElementById("createShortcut").style.display = (type === "Food") ? "none" : "block";
+  document.getElementById("quickCreateToggleBtn").style.display = (type === "Food") ? "block" : "none";
+  document.getElementById("quickCreateForm").style.display = "none";
   document.getElementById("scanBarcodeBtn").style.display = (type === "Food") ? "block" : "none";
 
   document.getElementById("itemSearch").value = "";
@@ -341,6 +375,60 @@ function setType(type) {
   selectedNames.clear();
   updateSelectedCount();
 
+}
+
+function toggleQuickCreate() {
+  const form = document.getElementById("quickCreateForm");
+  form.style.display = (form.style.display === "none") ? "block" : "none";
+}
+
+function quickCreateFood() {
+
+  const name = document.getElementById("qcName").value.trim();
+  const servingSize = parseFloat(document.getElementById("qcServingSize").value);
+
+  if (!name) { showQuickCreateResult(false, "Food name is required."); return; }
+  if (!servingSize || isNaN(servingSize) || servingSize <= 0) { showQuickCreateResult(false, "Enter a valid serving size."); return; }
+
+  const fields = {
+    name: name,
+    servingSize: servingSize,
+    servingUnit: document.getElementById("qcServingUnit").value,
+    calories: parseFloat(document.getElementById("qcCalories").value) || 0,
+    protein: parseFloat(document.getElementById("qcProtein").value) || 0,
+    fat: parseFloat(document.getElementById("qcFat").value) || 0,
+    carbs: parseFloat(document.getElementById("qcCarbs").value) || 0
+  };
+
+  showQuickCreateResult(true, "Creating...");
+
+  apiPost("addManualFood", { fields: fields }).then(function(json) {
+
+    if (!json.success) { showQuickCreateResult(false, json.error); return; }
+
+    localFoodNames.push(json.data.name);
+    addToCart(json.data.name, "Food", fields.servingUnit);
+
+    document.getElementById("qcName").value = "";
+    document.getElementById("qcServingSize").value = "";
+    document.getElementById("qcCalories").value = "";
+    document.getElementById("qcProtein").value = "";
+    document.getElementById("qcFat").value = "";
+    document.getElementById("qcCarbs").value = "";
+    document.getElementById("quickCreateForm").style.display = "none";
+    showQuickCreateResult(true, "");
+
+  }).catch(function(err) {
+    showQuickCreateResult(false, "Could not reach the backend: " + err.message);
+  });
+
+}
+
+function showQuickCreateResult(ok, message) {
+  const box = document.getElementById("quickCreateResultBox");
+  if (!message) { box.className = "result-box"; box.textContent = ""; return; }
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
 }
 
 function currentNameList() {
@@ -480,15 +568,20 @@ function addSelectedItems() {
   const type = currentType;
 
   Promise.all(names.map(function(name) {
-    if (type !== "Food") return Promise.resolve({ name: name, unit: "serving" });
+    if (type !== "Food") return Promise.resolve({ name: name, unit: "serving", unitsHint: null });
     return apiGet("getFoodDetails", { name: name }).then(function(json) {
-      return { name: name, unit: (json.success && json.data.servingUnit) ? json.data.servingUnit : "g" };
+      if (!json.success) return { name: name, unit: "g", unitsHint: null };
+      const d = json.data;
+      return {
+        name: name, unit: d.servingUnit || "g",
+        unitsHint: buildUnitsHint(d.servingSize, d.servingUnit, d.altServingSize, d.altServingUnit)
+      };
     }).catch(function() {
-      return { name: name, unit: "g" };
+      return { name: name, unit: "g", unitsHint: null };
     });
   })).then(function(results) {
 
-    results.forEach(function(r) { addToCart(r.name, type, r.unit); });
+    results.forEach(function(r) { addToCart(r.name, type, r.unit, undefined, r.unitsHint); });
 
     selectedNames.clear();
     document.getElementById("itemSearch").value = "";
@@ -499,9 +592,25 @@ function addSelectedItems() {
 
 }
 
-function addToCart(name, type, unit, amount) {
-  const defaultMeal = document.getElementById("defaultMealSelect").value;
-  cart.push({ name: name, type: type, amount: (amount !== undefined && amount !== null) ? String(amount) : "", unit: unit, meal: defaultMeal });
+function buildUnitsHint(servingSize, servingUnit, altServingSize, altServingUnit) {
+  if (!servingSize || !servingUnit) return null;
+  let text = "Native: " + formatAmountForDisplay(servingSize) + " " + servingUnit;
+  if (altServingSize && altServingUnit) {
+    text += " &middot; Also: " + formatAmountForDisplay(altServingSize) + " " + altServingUnit;
+  }
+  return text;
+}
+
+function smartDefaultMeal() {
+  const hour = new Date().getHours();
+  if (hour < 10) return "Breakfast";
+  if (hour < 15) return "Lunch";
+  if (hour < 21) return "Dinner";
+  return "Snack";
+}
+
+function addToCart(name, type, unit, amount, unitsHint) {
+  cart.push({ name: name, type: type, amount: (amount !== undefined && amount !== null) ? String(amount) : "", unit: unit, meal: smartDefaultMeal(), unitsHint: unitsHint || null });
   renderCart();
 }
 

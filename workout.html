@@ -167,7 +167,7 @@ window.addEventListener("load", async function() {
   const session = await requireAuth();
   if (!session) return;
 
-  document.getElementById("dateInput").valueAsDate = new Date();
+  document.getElementById("dateInput").value = localDateString();
   registerServiceWorker();
 
   apiGet("getExerciseNames").then(function(json) {
@@ -371,7 +371,7 @@ function renderExerciseList() {
       } else {
         const session = ex.history.sessions[0];
         const setsText = session.sets.map(function(s) {
-          return "Set " + s.setNumber + ": " + s.weight + s.unit + " &times; " + s.reps + (s.notes ? " (" + escapeHtml(s.notes) + ")" : "");
+          return "Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps + (s.notes ? " (" + escapeHtml(s.notes) + ")" : "");
         }).join("<br>");
         lastTimeHtml = "<div class='last-time-box'><div class='lt-title'>Last time (" + session.date + ")</div>" + setsText + "</div>";
       }
@@ -379,7 +379,7 @@ function renderExerciseList() {
 
     const loggedSetsHtml = ex.sets.map(function(s, si) {
       return "<div class='logged-set-row'>" +
-        "<span>Set " + s.setNumber + ": " + s.weight + s.unit + " &times; " + s.reps + (s.notes ? " — " + escapeHtml(s.notes) : "") + "</span>" +
+        "<span>Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps + (s.notes ? " — " + escapeHtml(s.notes) : "") + "</span>" +
         "<button class='remove-set' onclick='removeSet(" + i + ", " + si + ")'>&times;</button>" +
       "</div>";
     }).join("");
