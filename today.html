@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Today</title>
+<title>Daily Log</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#1C2530">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,18 +26,8 @@
     text-align: center;
   }
 
-  .total-tile .value {
-    font-family: 'Manrope', sans-serif;
-    font-size: 20px;
-    font-weight: 800;
-  }
-
-  .total-tile .label {
-    font-size: 11px;
-    color: var(--ink-soft);
-    margin-top: 2px;
-  }
-
+  .total-tile .value { font-family: 'Manrope', sans-serif; font-size: 20px; font-weight: 800; }
+  .total-tile .label { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
   .total-tile.protein .value { color: var(--protein); }
   .total-tile.carbs .value { color: var(--carbs); }
   .total-tile.fat .value { color: var(--fat); }
@@ -45,112 +35,49 @@
   .meal-group { margin-bottom: 18px; }
   .meal-group:last-child { margin-bottom: 0; }
 
-  .meal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 6px;
-  }
-
-  .meal-header h3 {
-    font-family: 'Manrope', sans-serif;
-    font-size: 14px;
-    font-weight: 800;
-    margin: 0;
-  }
-
-  .meal-header .meal-cal {
-    font-size: 12px;
-    color: var(--ink-soft);
-  }
+  .meal-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .meal-header h3 { font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 800; margin: 0; }
+  .meal-header .meal-cal { font-size: 12px; color: var(--ink-soft); }
 
   .repeat-btn {
-    width: auto;
-    padding: 5px 10px;
-    font-size: 11px;
-    background: var(--bg);
-    color: var(--ink-soft);
-    border: 1px solid var(--line);
-    margin-top: 6px;
+    width: auto; padding: 5px 10px; font-size: 11px;
+    background: var(--bg); color: var(--ink-soft); border: 1px solid var(--line); margin-top: 6px;
   }
 
-  .entry-row {
-    padding: 10px 0;
-    border-bottom: 1px solid var(--line);
-  }
+  .entry-row, .exercise-group-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .entry-row:last-child, .exercise-group-row:last-child { border-bottom: none; }
 
-  .entry-row:last-child { border-bottom: none; }
-
-  .entry-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    font-size: 14px;
-  }
-
-  .entry-actions {
-    display: flex;
-    gap: 4px;
-    flex-shrink: 0;
-  }
-
-  .entry-actions button {
-    width: auto;
-    padding: 2px 6px;
-    font-size: 13px;
-    background: transparent;
-    border: none;
-    color: var(--ink-soft);
-  }
-
-  .entry-actions .entry-delete-btn { color: var(--error); }
-
-  .entry-edit-form {
-    display: none;
-    background: var(--bg);
-    border-radius: 8px;
-    padding: 10px;
-    margin-top: 8px;
-  }
-
-  .entry-edit-form.open { display: block; }
-
-  .entry-edit-form .row-2 { margin-bottom: 0; }
-  .entry-edit-form input, .entry-edit-form select { margin-bottom: 8px; }
-  .entry-edit-form button { width: auto; padding: 8px 14px; font-size: 13px; margin-right: 6px; }
-
+  .entry-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; }
   .entry-name { font-weight: 600; }
-
-  .entry-meta {
-    font-size: 12px;
-    color: var(--ink-soft);
-    margin-top: 3px;
-  }
-
+  .entry-meta { font-size: 12px; color: var(--ink-soft); margin-top: 3px; }
   .entry-meta .protein { color: var(--protein); }
   .entry-meta .carbs { color: var(--carbs); }
   .entry-meta .fat { color: var(--fat); }
 
-  .date-nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 14px;
-  }
+  .entry-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .entry-actions button { width: auto; padding: 2px 6px; font-size: 13px; background: transparent; border: none; color: var(--ink-soft); }
+  .entry-actions .entry-delete-btn { color: var(--error); }
 
-  .date-nav button {
-    width: auto;
-    padding: 8px 12px;
-    background: var(--surface);
-    border: 1.5px solid var(--line);
-    color: var(--ink);
-  }
+  .entry-edit-form { display: none; background: var(--bg); border-radius: 8px; padding: 10px; margin-top: 8px; }
+  .entry-edit-form.open { display: block; }
+  .entry-edit-form .row-2 { margin-bottom: 0; }
+  .entry-edit-form input, .entry-edit-form select { margin-bottom: 8px; }
+  .entry-edit-form button { width: auto; padding: 8px 14px; font-size: 13px; margin-right: 6px; }
 
-  .date-nav input {
-    margin-bottom: 0;
-    text-align: center;
-  }
+  .date-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .date-nav button { width: auto; padding: 8px 12px; background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
+  .date-nav input { margin-bottom: 0; text-align: center; }
+
+  .set-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .set-row:last-child { border-bottom: none; }
+  .set-delete-btn { width: auto; padding: 0 6px; font-size: 15px; background: transparent; border: none; color: var(--error); }
+
+  .progress-summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 14px; margin-top: 4px; }
+  .progress-summary-grid .label { color: var(--ink-soft); }
+  .progress-summary-grid .value { font-weight: 700; font-family: 'Manrope', sans-serif; }
+
+  .ach-earned-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .ach-earned-row:last-child { border-bottom: none; }
 
 </style>
 </head>
@@ -159,7 +86,7 @@
 <header>
   <div class="titles">
     <div class="eyebrow">Overview</div>
-    <h1>Today</h1>
+    <h1>Daily Log</h1>
   </div>
   <a class="back" href="./log.html">Log &rarr;</a>
 </header>
@@ -173,42 +100,76 @@
       <button onclick="shiftDate(1)">&rarr;</button>
     </div>
 
-    <div class="totals-grid">
-      <div class="total-tile">
-        <div class="value" id="totalCalories">–</div>
-        <div class="label">Calories</div>
-      </div>
-      <div class="total-tile protein">
-        <div class="pct-label" id="pctProtein"></div>
-        <div class="value" id="totalProtein">–</div>
-        <div class="label">Protein (g)</div>
-      </div>
-      <div class="total-tile carbs">
-        <div class="pct-label" id="pctCarbs"></div>
-        <div class="value" id="totalCarbs">–</div>
-        <div class="label">Carbs (g)</div>
-      </div>
-      <div class="total-tile fat">
-        <div class="pct-label" id="pctFat"></div>
-        <div class="value" id="totalFat">–</div>
-        <div class="label">Fat (g)</div>
-      </div>
-      <div class="total-tile">
-        <div class="value" id="totalFiber">–</div>
-        <div class="label">Fiber (g)</div>
-      </div>
-      <div class="total-tile">
-        <div class="value" id="totalNetCarbs">–</div>
-        <div class="label">Net Carbs (g)</div>
-      </div>
+    <div class="segmented">
+      <button class="active" id="tabFoodBtn" onclick="setTab('food')">Food</button>
+      <button id="tabWorkoutsBtn" onclick="setTab('workouts')">Workouts</button>
+      <button id="tabProgressBtn" onclick="setTab('progress')">Progress</button>
     </div>
   </div>
 
-  <div class="card">
-    <h2>Entries</h2>
-    <div id="entriesList">
-      <div class="empty-state">Loading...</div>
+  <!-- ============ FOOD TAB ============ -->
+  <div id="foodTab">
+
+    <div class="card">
+      <div class="totals-grid">
+        <div class="total-tile">
+          <div class="value" id="totalCalories">–</div>
+          <div class="label">Calories</div>
+        </div>
+        <div class="total-tile protein">
+          <div class="pct-label" id="pctProtein"></div>
+          <div class="value" id="totalProtein">–</div>
+          <div class="label">Protein (g)</div>
+        </div>
+        <div class="total-tile carbs">
+          <div class="pct-label" id="pctCarbs"></div>
+          <div class="value" id="totalCarbs">–</div>
+          <div class="label">Carbs (g)</div>
+        </div>
+        <div class="total-tile fat">
+          <div class="pct-label" id="pctFat"></div>
+          <div class="value" id="totalFat">–</div>
+          <div class="label">Fat (g)</div>
+        </div>
+        <div class="total-tile">
+          <div class="value" id="totalFiber">–</div>
+          <div class="label">Fiber (g)</div>
+        </div>
+        <div class="total-tile">
+          <div class="value" id="totalNetCarbs">–</div>
+          <div class="label">Net Carbs (g)</div>
+        </div>
+      </div>
     </div>
+
+    <div class="card">
+      <h2>Entries</h2>
+      <div id="entriesList"><div class="empty-state">Loading...</div></div>
+    </div>
+
+  </div>
+
+  <!-- ============ WORKOUTS TAB ============ -->
+  <div id="workoutsTab" style="display:none;">
+    <div class="card">
+      <h2>Workout</h2>
+      <div id="workoutList"><div class="empty-state">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- ============ PROGRESS TAB ============ -->
+  <div id="progressTab" style="display:none;">
+
+    <div class="card">
+      <h2>Progress entry</h2>
+      <div id="progressSummary"><div class="empty-state">Loading...</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Achievements earned this day</h2>
+      <div id="achievementsForDay"><div class="empty-state">Loading...</div></div>
+    </div>
+
   </div>
 
 </main>
@@ -219,7 +180,7 @@
 <script>
 
 const MEAL_ORDER = ["Breakfast", "Lunch", "Dinner", "Snack"];
-let currentEntries = [];
+let currentTab = "food";
 
 window.addEventListener("load", async function() {
 
@@ -236,6 +197,16 @@ function todayString() {
   return localDateString();
 }
 
+function setTab(tab) {
+  currentTab = tab;
+  document.getElementById("tabFoodBtn").classList.toggle("active", tab === "food");
+  document.getElementById("tabWorkoutsBtn").classList.toggle("active", tab === "workouts");
+  document.getElementById("tabProgressBtn").classList.toggle("active", tab === "progress");
+  document.getElementById("foodTab").style.display = (tab === "food") ? "block" : "none";
+  document.getElementById("workoutsTab").style.display = (tab === "workouts") ? "block" : "none";
+  document.getElementById("progressTab").style.display = (tab === "progress") ? "block" : "none";
+}
+
 function onDateChange() {
   loadDay();
 }
@@ -249,6 +220,16 @@ function shiftDate(days) {
 }
 
 function loadDay() {
+  loadFoodTab();
+  loadWorkoutsTab();
+  loadProgressTab();
+}
+
+// ============================================================
+// FOOD TAB
+// ============================================================
+
+function loadFoodTab() {
 
   const date = document.getElementById("dateInput").value;
 
@@ -258,12 +239,10 @@ function loadDay() {
   apiGet("getDailyLogEntries", { date: date }).then(function(json) {
 
     if (!json.success) {
-      document.getElementById("entriesList").innerHTML =
-        "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
+      document.getElementById("entriesList").innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
       return;
     }
 
-    currentEntries = json.data.entries;
     setTotals(json.data.totals);
     renderGroupedEntries(json.data.entries, date);
 
@@ -293,12 +272,10 @@ function renderGroupedEntries(entries, viewedDate) {
   const container = document.getElementById("entriesList");
 
   if (entries.length === 0) {
-    container.innerHTML = "<div class='empty-state'>Nothing logged for this day yet.</div>";
+    container.innerHTML = "<div class='empty-state'>Nothing logged for this day yet. <a href='./log.html'>Log something &rarr;</a></div>";
     return;
   }
 
-  // Group by meal, preserving a sensible fixed order, with any
-  // unrecognized meal names appended at the end.
   const groups = {};
   entries.forEach(function(e) {
     const meal = e.meal || "Other";
@@ -374,8 +351,7 @@ function renderGroupedEntries(entries, viewedDate) {
 }
 
 function toggleEditEntry(id) {
-  const form = document.getElementById("editForm_" + id);
-  form.classList.toggle("open");
+  document.getElementById("editForm_" + id).classList.toggle("open");
 }
 
 function saveEntryEdit(id) {
@@ -388,7 +364,7 @@ function saveEntryEdit(id) {
 
   apiPost("updateDailyLogEntry", { id: id, amount: amount, unit: unit, meal: meal }).then(function(json) {
     if (!json.success) { alert("Could not update entry: " + json.error); return; }
-    loadDay();
+    loadFoodTab();
   }).catch(function(err) {
     alert("Could not reach the backend: " + err.message);
   });
@@ -396,38 +372,150 @@ function saveEntryEdit(id) {
 }
 
 function deleteEntry(id) {
-
   if (!confirm("Remove this entry from your log?")) return;
-
   apiPost("deleteDailyLogEntry", { id: id }).then(function(json) {
     if (!json.success) { alert("Could not delete entry: " + json.error); return; }
-    loadDay();
+    loadFoodTab();
   }).catch(function(err) {
     alert("Could not reach the backend: " + err.message);
+  });
+}
+
+function repeatMealToToday(sourceDate, meal) {
+  if (!confirm("Repeat " + meal + " from " + sourceDate + " to today?")) return;
+  apiPost("repeatMeal", { sourceDate: sourceDate, meal: meal, targetDate: todayString() }).then(function(json) {
+    if (!json.success) { alert("Could not repeat meal: " + json.error); return; }
+    alert("Added " + json.data.count + " item(s) to today.");
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+}
+
+// ============================================================
+// WORKOUTS TAB
+// ============================================================
+
+function loadWorkoutsTab() {
+
+  const date = document.getElementById("dateInput").value;
+  document.getElementById("workoutList").innerHTML = "<div class='empty-state'>Loading...</div>";
+
+  apiGet("getWorkoutEntries", { date: date }).then(function(json) {
+    if (!json.success) {
+      document.getElementById("workoutList").innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
+      return;
+    }
+    renderWorkoutEntries(json.data.entries);
+  }).catch(function(err) {
+    document.getElementById("workoutList").innerHTML = "<div class='empty-state'>Could not reach the backend: " + escapeHtml(err.message) + "</div>";
   });
 
 }
 
-function repeatMealToToday(sourceDate, meal) {
+function renderWorkoutEntries(entries) {
 
-  if (!confirm("Repeat " + meal + " from " + sourceDate + " to today?")) return;
+  const container = document.getElementById("workoutList");
 
-  apiPost("repeatMeal", {
-    sourceDate: sourceDate,
-    meal: meal,
-    targetDate: todayString()
-  }).then(function(json) {
+  if (entries.length === 0) {
+    container.innerHTML = "<div class='empty-state'>No workout logged for this day. <a href='./workout.html'>Log a workout &rarr;</a></div>";
+    return;
+  }
 
-    if (!json.success) {
-      alert("Could not repeat meal: " + json.error);
-      return;
-    }
+  const groups = {};
+  entries.forEach(function(e) {
+    if (!groups[e.exercise]) groups[e.exercise] = [];
+    groups[e.exercise].push(e);
+  });
 
-    alert("Added " + json.data.count + " item(s) to today.");
+  const workoutName = entries[0].workoutName;
+  let html = workoutName ? "<div class='helper' style='margin-top:0;'>" + escapeHtml(workoutName) + "</div>" : "";
 
+  html += Object.keys(groups).map(function(exercise) {
+
+    const sets = groups[exercise].sort(function(a, b) { return (a.setNumber || 0) - (b.setNumber || 0); });
+
+    const setsHtml = sets.map(function(s) {
+      return "<div class='set-row'>" +
+        "<span>Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps +
+          (s.notes ? " — " + escapeHtml(s.notes) : "") + "</span>" +
+        "<button class='set-delete-btn' onclick='deleteSet(" + jsStringLiteral(s.id) + ")'>&times;</button>" +
+      "</div>";
+    }).join("");
+
+    return "<div class='exercise-group-row'><h3 style=\"font-family:'Manrope',sans-serif; font-size:14px; font-weight:800; margin:0 0 6px;\">" +
+      escapeHtml(exercise) + "</h3>" + setsHtml + "</div>";
+
+  }).join("");
+
+  container.innerHTML = html;
+
+}
+
+function deleteSet(id) {
+  if (!confirm("Remove this set?")) return;
+  apiPost("deleteWorkoutSet", { id: id }).then(function(json) {
+    if (!json.success) { alert("Could not delete set: " + json.error); return; }
+    loadWorkoutsTab();
   }).catch(function(err) {
     alert("Could not reach the backend: " + err.message);
   });
+}
+
+// ============================================================
+// PROGRESS TAB
+// ============================================================
+
+async function loadProgressTab() {
+
+  const date = document.getElementById("dateInput").value;
+  const summaryEl = document.getElementById("progressSummary");
+  const achEl = document.getElementById("achievementsForDay");
+
+  summaryEl.innerHTML = "<div class='empty-state'>Loading...</div>";
+  achEl.innerHTML = "<div class='empty-state'>Loading...</div>";
+
+  try {
+
+    const userId = await getCurrentUserId();
+
+    const { data: progress } = await sb.from("progress_log").select("*").eq("user_id", userId).eq("log_date", date).maybeSingle();
+
+    if (!progress) {
+      summaryEl.innerHTML = "<div class='empty-state'>No progress logged for this day. <a href='./progress.html'>Log progress &rarr;</a></div>";
+    } else {
+      const rows = [];
+      if (progress.weight) rows.push(["Weight", formatAmountForDisplay(progress.weight)]);
+      if (progress.exercise_type) rows.push(["Exercise Type", progress.exercise_type]);
+      if (progress.duration) rows.push(["Duration (min)", formatAmountForDisplay(progress.duration)]);
+      if (progress.distance) rows.push(["Distance", formatAmountForDisplay(progress.distance)]);
+      if (progress.steps) rows.push(["Steps", progress.steps]);
+      if (progress.sleep_hours) rows.push(["Sleep (hrs)", formatAmountForDisplay(progress.sleep_hours)]);
+      rows.push(["Gym", progress.gym ? "Yes" : "No"]);
+      rows.push(["Water Goal Met", progress.water_goal_met ? "Yes" : "No"]);
+
+      summaryEl.innerHTML = "<div class='progress-summary-grid'>" +
+        rows.map(function(r) { return "<div class='label'>" + r[0] + "</div><div class='value'>" + r[1] + "</div>"; }).join("") +
+        "</div>" +
+        (progress.notes ? "<div class='helper' style='margin-top:10px; margin-bottom:0;'>" + escapeHtml(progress.notes) + "</div>" : "") +
+        "<a href='./progress.html' class='helper' style='margin-top:10px; margin-bottom:0; display:block;'>Edit in Progress screen &rarr;</a>";
+    }
+
+    const { data: achievements } = await sb.from("achievements").select("label, category").eq("user_id", userId).eq("date_earned", date);
+
+    if (!achievements || achievements.length === 0) {
+      achEl.innerHTML = "<div class='empty-state'>Nothing earned this day.</div>";
+    } else {
+      achEl.innerHTML = achievements.map(function(a) {
+        return "<div class='ach-earned-row'>&#127942; <span>" + escapeHtml(a.label) +
+          (a.category ? " <span style='color:var(--ink-soft); font-size:12px;'>(" + escapeHtml(a.category) + ")</span>" : "") +
+          "</span></div>";
+      }).join("");
+    }
+
+  } catch (err) {
+    summaryEl.innerHTML = "<div class='empty-state'>" + escapeHtml(err.message) + "</div>";
+    achEl.innerHTML = "";
+  }
 
 }
 

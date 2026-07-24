@@ -146,6 +146,7 @@ async function routeAction(action, params) {
     case "addExercise": return addExercise(params.name, params.category, params.notes);
     case "getExerciseHistory": return getExerciseHistory(params.exercise, params.sessionLimit);
     case "getWorkoutEntries": return getWorkoutEntries(params.date);
+    case "deleteWorkoutSet": return deleteWorkoutSet(params.id);
     case "batchLogWorkoutSets": return batchLogWorkoutSets(params.sets);
     case "getWorkoutTemplateNames": return getWorkoutTemplateNames();
     case "getWorkoutTemplate": return getWorkoutTemplate(params.name);
@@ -570,19 +571,26 @@ async function getExerciseHistory(exerciseName, sessionLimit) {
 async function getWorkoutEntries(dateStr) {
   const { data, error } = await sb
     .from("workout_log")
-    .select("workout_name, set_number, weight, unit, reps, notes, exercises(name)")
+    .select("id, workout_name, set_number, weight, unit, reps, notes, exercises(name)")
     .eq("log_date", dateStr);
 
   if (error) throw new Error(error.message);
 
   const entries = data.map(function(row) {
     return {
-      workoutName: row.workout_name, exercise: row.exercises ? row.exercises.name : "",
+      id: row.id, workoutName: row.workout_name, exercise: row.exercises ? row.exercises.name : "",
       setNumber: row.set_number, weight: row.weight, unit: row.unit, reps: row.reps, notes: row.notes
     };
   });
 
   return { entries: entries };
+}
+
+async function deleteWorkoutSet(id) {
+  const userId = await getCurrentUserId();
+  const { error } = await sb.from("workout_log").delete().eq("id", id).eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  return { deleted: true };
 }
 
 async function logOneWorkoutSet(userId, s) {
@@ -932,7 +940,7 @@ function injectNavMenu() {
     { section: "Nutrition", items: [
       { href: "./index.html", label: "Home / Dashboard" },
       { href: "./log.html", label: "Log Food or Recipe" },
-      { href: "./today.html", label: "Today" },
+      { href: "./today.html", label: "Daily Log" },
       { href: "./recipe.html", label: "Build a Recipe" },
       { href: "./add-food.html", label: "Add Food Manually" },
       { href: "./bulk-import.html", label: "Bulk Import Foods" },
