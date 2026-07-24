@@ -88,6 +88,37 @@
     font-size: 14px;
   }
 
+  .entry-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .entry-actions button {
+    width: auto;
+    padding: 2px 6px;
+    font-size: 13px;
+    background: transparent;
+    border: none;
+    color: var(--ink-soft);
+  }
+
+  .entry-actions .entry-delete-btn { color: var(--error); }
+
+  .entry-edit-form {
+    display: none;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 8px;
+  }
+
+  .entry-edit-form.open { display: block; }
+
+  .entry-edit-form .row-2 { margin-bottom: 0; }
+  .entry-edit-form input, .entry-edit-form select { margin-bottom: 8px; }
+  .entry-edit-form button { width: auto; padding: 8px 14px; font-size: 13px; margin-right: 6px; }
+
   .entry-name { font-weight: 600; }
 
   .entry-meta {
@@ -289,9 +320,14 @@ function renderGroupedEntries(entries, viewedDate) {
     const mealCalories = mealEntries.reduce(function(sum, e) { return sum + (Number(e.calories) || 0); }, 0);
 
     const entriesHtml = mealEntries.map(function(e) {
+      const safeId = jsStringLiteral(e.id);
       return "<div class='entry-row'>" +
         "<div class='entry-top'>" +
           "<span class='entry-name'>" + escapeHtml(e.name) + "</span>" +
+          "<span class='entry-actions'>" +
+            "<button onclick='toggleEditEntry(" + safeId + ")'>&#9998;</button>" +
+            "<button class='entry-delete-btn' onclick='deleteEntry(" + safeId + ")'>&times;</button>" +
+          "</span>" +
         "</div>" +
         "<div class='entry-meta'>" +
           formatAmountForDisplay(e.amount) + " " + escapeHtml(e.unit) + " &middot; " +
@@ -301,6 +337,24 @@ function renderGroupedEntries(entries, viewedDate) {
           "<span class='fat'>" + formatAmountForDisplay(e.fat) + "g F</span>" +
         "</div>" +
         (e.notes ? "<div class='entry-meta'>" + escapeHtml(e.notes) + "</div>" : "") +
+        "<div class='entry-edit-form' id='editForm_" + e.id + "'>" +
+          "<div class='row-2'>" +
+            "<input type='text' id='editAmount_" + e.id + "' value='" + escapeHtml(e.amount) + "' placeholder='amount'>" +
+            "<select id='editUnit_" + e.id + "'>" +
+              ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","piece","serving"].map(function(u) {
+                const label = (u === "serving") ? "serving(s)" : (u === "piece") ? "piece(s)" : u;
+                return "<option value='" + u + "'" + (e.unit === u ? " selected" : "") + ">" + label + "</option>";
+              }).join("") +
+            "</select>" +
+          "</div>" +
+          "<select id='editMeal_" + e.id + "'>" +
+            ["Breakfast","Lunch","Dinner","Snack"].map(function(m) {
+              return "<option value='" + m + "'" + (e.meal === m ? " selected" : "") + ">" + m + "</option>";
+            }).join("") +
+          "</select>" +
+          "<button onclick='saveEntryEdit(" + safeId + ")'>Save</button>" +
+          "<button class='secondary' onclick='toggleEditEntry(" + safeId + ")'>Cancel</button>" +
+        "</div>" +
       "</div>";
     }).join("");
 
@@ -316,6 +370,41 @@ function renderGroupedEntries(entries, viewedDate) {
     "</div>";
 
   }).join("");
+
+}
+
+function toggleEditEntry(id) {
+  const form = document.getElementById("editForm_" + id);
+  form.classList.toggle("open");
+}
+
+function saveEntryEdit(id) {
+
+  const amount = parseFloat(document.getElementById("editAmount_" + id).value);
+  const unit = document.getElementById("editUnit_" + id).value;
+  const meal = document.getElementById("editMeal_" + id).value;
+
+  if (!amount || isNaN(amount) || amount <= 0) { alert("Enter a valid amount."); return; }
+
+  apiPost("updateDailyLogEntry", { id: id, amount: amount, unit: unit, meal: meal }).then(function(json) {
+    if (!json.success) { alert("Could not update entry: " + json.error); return; }
+    loadDay();
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+
+}
+
+function deleteEntry(id) {
+
+  if (!confirm("Remove this entry from your log?")) return;
+
+  apiPost("deleteDailyLogEntry", { id: id }).then(function(json) {
+    if (!json.success) { alert("Could not delete entry: " + json.error); return; }
+    loadDay();
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
 
 }
 

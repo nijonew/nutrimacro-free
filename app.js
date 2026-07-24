@@ -132,6 +132,8 @@ async function routeAction(action, params) {
     case "batchLogEntries": return batchLogEntries(params.entries);
     case "repeatMeal": return repeatMeal(params.sourceDate, params.meal, params.targetDate);
     case "getRecentFoods": return getRecentFoods(params.limit);
+    case "deleteDailyLogEntry": return deleteDailyLogEntry(params.id);
+    case "updateDailyLogEntry": return updateDailyLogEntry(params.id, params.amount, params.unit, params.meal, params.notes);
     case "recalculatePastLogsForFood": return recalculatePastLogsForFood(params.name);
     case "recalculatePastLogsForRecipe": return recalculatePastLogsForRecipe(params.name);
 
@@ -402,7 +404,7 @@ async function getDailyLogEntries(dateStr) {
 
   const entries = data.map(function(row) {
     return {
-      meal: row.meal, type: row.food_id ? "Food" : "Recipe",
+      id: row.id, meal: row.meal, type: row.food_id ? "Food" : "Recipe",
       name: row.foods ? row.foods.name : (row.recipes ? row.recipes.name : ""),
       amount: row.amount, unit: row.unit, calories: row.calories, protein: row.protein,
       fat: row.fat, carbs: row.carbs, fiber: row.fiber, netCarbs: row.net_carbs, notes: row.notes
@@ -679,8 +681,56 @@ async function saveWorkoutTemplate(templateName, exercises) {
 }
 
 /**
+ * Replaces: "No edit/delete for a logged Daily Log ... entry once
+ * saved" from PENDING.md.
+ */
+async function deleteDailyLogEntry(id) {
+  const userId = await getCurrentUserId();
+  const { error } = await sb.from("daily_log").delete().eq("id", id).eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  return { deleted: true };
+}
+
+async function updateDailyLogEntry(id, amount, unit, meal, notes) {
+
+  const userId = await getCurrentUserId();
+
+  const { data: row, error: rowError } = await sb.from("daily_log").select("food_id, recipe_id").eq("id", id).eq("user_id", userId).single();
+  if (rowError) throw new Error(rowError.message);
+
+  let servingSize, servingUnit, macros, altServingSize = null, altServingUnit = null;
+
+  if (row.food_id) {
+    const { data: food, error } = await sb.from("foods").select("*").eq("id", row.food_id).single();
+    if (error) throw new Error(error.message);
+    servingSize = food.serving_size; servingUnit = food.serving_unit;
+    altServingSize = food.alt_serving_size; altServingUnit = food.alt_serving_unit;
+    macros = { calories: food.calories, protein: food.protein, fat: food.fat, carbs: food.carbs, fiber: food.fiber };
+  } else if (row.recipe_id) {
+    const basis = await resolveRecipeServingBasis(row.recipe_id);
+    servingSize = basis.servingSize; servingUnit = basis.servingUnit; macros = basis.macros;
+  } else {
+    throw new Error("This entry has no linked food or recipe to recalculate against.");
+  }
+
+  const result = calculateMacros(amount, unit, servingSize, servingUnit, macros, altServingSize, altServingUnit);
+
+  const { error: updateError } = await sb.from("daily_log").update({
+    amount: amount, unit: unit, meal: meal, notes: notes || null,
+    calories: result.calories, protein: result.protein, fat: result.fat,
+    carbs: result.carbs, fiber: result.fiber, net_carbs: result.netCarbs
+  }).eq("id", id).eq("user_id", userId);
+
+  if (updateError) throw new Error(updateError.message);
+
+  return result;
+
+}
+
+/**
  * Replaces: "when a Food or Recipe's macros change, offer to recalculate
- * past logged entries" from PENDING.md. Re-runs calculateMacros against
+ * past logged entries that used it, or leave them as historical record."
+ * Re-runs calculateMacros against
  * every existing Daily Log row that used this food, using the food's
  * CURRENT macros/serving info but each row's ORIGINAL logged amount/unit
  * — then updates the stored calories/protein/fat/carbs/fiber/net_carbs.
