@@ -42,16 +42,17 @@
     text-transform: uppercase;
   }
 
-  .day-total {
-    font-size: 12px;
+  .report-table tr.total-row td {
+    font-weight: 700;
+    border-top: 2px solid var(--line);
+  }
+
+  .report-table tr.percent-row td {
     color: var(--ink-soft);
+    font-style: italic;
   }
 
   .averages-box {
-    background: var(--bg);
-    border-radius: 10px;
-    padding: 12px;
-    font-size: 13px;
     margin-top: 10px;
   }
 
@@ -89,6 +90,12 @@
       <button id="typeBothBtn" onclick="setReportType('both')">Both</button>
     </div>
 
+    <label id="detailLevelLabel">Nutrition detail level</label>
+    <div class="segmented" id="detailLevelToggle">
+      <button class="active" id="detailFullBtn" onclick="setDetailLevel('full')">Full Detail</button>
+      <button id="detailSummaryBtn" onclick="setDetailLevel('summary')">Daily Totals Only</button>
+    </div>
+
     <button onclick="generateReport()">Generate Report</button>
     <div class="result-box" id="statusBox"></div>
   </div>
@@ -109,7 +116,8 @@
 <script>
 
 let reportType = "nutrition";
-let lastReport = null; // { startDate, endDate, reportType, nutritionDays, workoutDays }
+let detailLevel = "full";
+let lastReport = null; // { startDate, endDate, reportType, detailLevel, nutritionDays, workoutDays }
 
 window.addEventListener("load", async function() {
 
@@ -132,6 +140,14 @@ function setReportType(type) {
   document.getElementById("typeNutritionBtn").classList.toggle("active", type === "nutrition");
   document.getElementById("typeWorkoutBtn").classList.toggle("active", type === "workout");
   document.getElementById("typeBothBtn").classList.toggle("active", type === "both");
+  document.getElementById("detailLevelToggle").style.display = (type === "workout") ? "none" : "flex";
+  document.getElementById("detailLevelLabel").style.display = (type === "workout") ? "none" : "block";
+}
+
+function setDetailLevel(level) {
+  detailLevel = level;
+  document.getElementById("detailFullBtn").classList.toggle("active", level === "full");
+  document.getElementById("detailSummaryBtn").classList.toggle("active", level === "summary");
 }
 
 function dateRange(startStr, endStr) {
@@ -177,7 +193,7 @@ async function generateReport() {
 
   }
 
-  lastReport = { startDate: startDate, endDate: endDate, reportType: reportType, nutritionDays: nutritionDays, workoutDays: workoutDays };
+  lastReport = { startDate: startDate, endDate: endDate, reportType: reportType, detailLevel: detailLevel, nutritionDays: nutritionDays, workoutDays: workoutDays };
 
   renderReport(lastReport);
   showStatus(true, "Report ready.");
@@ -185,7 +201,7 @@ async function generateReport() {
 }
 
 function computeAverages(nutritionDays) {
-  const sums = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  const sums = { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, netCarbs: 0 };
   nutritionDays.forEach(function(day) {
     sums.calories += Number(day.totals.calories) || 0;
     sums.protein += Number(day.totals.protein) || 0;
@@ -194,48 +210,35 @@ function computeAverages(nutritionDays) {
   });
   const count = nutritionDays.length || 1;
   return {
-    calories: Math.round(sums.calories / count),
-    protein: Math.round(sums.protein / count),
-    carbs: Math.round(sums.carbs / count),
-    fat: Math.round(sums.fat / count)
+    calories: round2(sums.calories / count),
+    protein: round2(sums.protein / count),
+    carbs: round2(sums.carbs / count),
+    fat: round2(sums.fat / count)
   };
 }
+
+// ============================================================
+// SCREEN RENDERING
+// ============================================================
 
 function renderReport(report) {
 
   document.getElementById("resultsCard").style.display = "block";
   const area = document.getElementById("resultsArea");
-
   let html = "";
 
   if (report.reportType === "nutrition" || report.reportType === "both") {
 
     if (report.nutritionDays.length === 0) {
       html += "<div class='empty-state'>No nutrition entries logged in this date range.</div>";
+    } else if (report.detailLevel === "full") {
+      html += renderFullDetailNutrition(report.nutritionDays);
     } else {
+      html += renderSummaryNutrition(report.nutritionDays);
+    }
 
-      report.nutritionDays.forEach(function(day) {
-
-        const rows = day.entries.map(function(e) {
-          return "<tr><td>" + escapeHtml(e.meal) + "</td><td>" + escapeHtml(e.name) + "</td><td>" +
-            formatAmountForDisplay(e.amount) + " " + escapeHtml(e.unit) + "</td><td>" + formatAmountForDisplay(e.calories) +
-            "</td><td>" + formatAmountForDisplay(e.protein) + "</td><td>" + formatAmountForDisplay(e.carbs) + "</td><td>" + formatAmountForDisplay(e.fat) + "</td></tr>";
-        }).join("");
-
-        html += "<div class='day-block'>" +
-          "<h3>" + day.date + "</h3>" +
-          "<table class='report-table'><thead><tr><th>Meal</th><th>Item</th><th>Amount</th><th>Cal</th><th>Prot</th><th>Carb</th><th>Fat</th></tr></thead>" +
-          "<tbody>" + rows + "</tbody></table>" +
-          "<div class='day-total'>Day total: " + formatAmountForDisplay(day.totals.calories) + " cal, " + formatAmountForDisplay(day.totals.protein) +
-          "g protein, " + formatAmountForDisplay(day.totals.carbs) + "g carbs, " + formatAmountForDisplay(day.totals.fat) + "g fat</div>" +
-        "</div>";
-
-      });
-
-      const avg = computeAverages(report.nutritionDays);
-      html += "<div class='averages-box'><b>Period Averages</b> (" + report.nutritionDays.length + " logged day(s))<br>" +
-        "Calories: " + avg.calories + " | Protein: " + avg.protein + "g | Carbs: " + avg.carbs + "g | Fat: " + avg.fat + "g</div>";
-
+    if (report.nutritionDays.length > 0) {
+      html += renderAveragesTable(report.nutritionDays);
     }
 
   }
@@ -247,22 +250,17 @@ function renderReport(report) {
     if (report.workoutDays.length === 0) {
       html += "<div class='empty-state'>No workouts logged in this date range.</div>";
     } else {
-
       report.workoutDays.forEach(function(day) {
-
         const rows = day.entries.map(function(e) {
           return "<tr><td>" + escapeHtml(e.exercise) + "</td><td>" + e.setNumber + "</td><td>" +
             formatAmountForDisplay(e.weight) + e.unit + "</td><td>" + e.reps + "</td><td>" + escapeHtml(e.notes || "") + "</td></tr>";
         }).join("");
-
         html += "<div class='day-block'>" +
           "<h3>" + day.date + "</h3>" +
           "<table class='report-table'><thead><tr><th>Exercise</th><th>Set</th><th>Weight</th><th>Reps</th><th>Notes</th></tr></thead>" +
           "<tbody>" + rows + "</tbody></table>" +
         "</div>";
-
       });
-
     }
 
   }
@@ -270,6 +268,74 @@ function renderReport(report) {
   area.innerHTML = html;
 
 }
+
+function renderFullDetailNutrition(nutritionDays) {
+
+  return nutritionDays.map(function(day) {
+
+    const itemRows = day.entries.map(function(e) {
+      return "<tr><td>" + escapeHtml(e.meal) + "</td><td>" + escapeHtml(e.name) + "</td><td>" +
+        formatAmountForDisplay(e.amount) + " " + escapeHtml(e.unit) + "</td><td>" + formatAmountForDisplay(e.calories) +
+        "</td><td>" + formatAmountForDisplay(e.protein) + "</td><td>" + formatAmountForDisplay(e.carbs) + "</td><td>" + formatAmountForDisplay(e.fat) + "</td></tr>";
+    }).join("");
+
+    const pct = calculateMacroPercents(day.totals);
+
+    const totalRow = "<tr class='total-row'><td></td><td>Day Total</td><td></td><td>" +
+      formatAmountForDisplay(day.totals.calories) + "</td><td>" + formatAmountForDisplay(day.totals.protein) +
+      "</td><td>" + formatAmountForDisplay(day.totals.carbs) + "</td><td>" + formatAmountForDisplay(day.totals.fat) + "</td></tr>";
+
+    const percentRow = "<tr class='percent-row'><td></td><td>% of Calories</td><td></td><td></td><td>" +
+      pct.protein + "%</td><td>" + pct.carbs + "%</td><td>" + pct.fat + "%</td></tr>";
+
+    return "<div class='day-block'>" +
+      "<h3>" + day.date + "</h3>" +
+      "<table class='report-table'><thead><tr><th>Meal</th><th>Item</th><th>Amount</th><th>Cal</th><th>Prot</th><th>Carb</th><th>Fat</th></tr></thead>" +
+      "<tbody>" + itemRows + totalRow + percentRow + "</tbody></table>" +
+    "</div>";
+
+  }).join("");
+
+}
+
+function renderSummaryNutrition(nutritionDays) {
+
+  const rows = nutritionDays.map(function(day) {
+    const pct = calculateMacroPercents(day.totals);
+    return "<tr><td>" + day.date + "</td><td>" + formatAmountForDisplay(day.totals.calories) + "</td><td>" +
+      formatAmountForDisplay(day.totals.protein) + "</td><td>" + formatAmountForDisplay(day.totals.carbs) + "</td><td>" +
+      formatAmountForDisplay(day.totals.fat) + "</td><td>" + pct.protein + "%</td><td>" + pct.carbs + "%</td><td>" + pct.fat + "%</td></tr>";
+  }).join("");
+
+  return "<div class='day-block'>" +
+    "<table class='report-table'><thead><tr><th>Date</th><th>Cal</th><th>Prot</th><th>Carb</th><th>Fat</th><th>%P</th><th>%C</th><th>%F</th></tr></thead>" +
+    "<tbody>" + rows + "</tbody></table>" +
+  "</div>";
+
+}
+
+function renderAveragesTable(nutritionDays) {
+
+  const avg = computeAverages(nutritionDays);
+  const pct = calculateMacroPercents(avg);
+
+  const avgRow = "<tr class='total-row'><td>Average</td><td>" + formatAmountForDisplay(avg.calories) + "</td><td>" +
+    formatAmountForDisplay(avg.protein) + "</td><td>" + formatAmountForDisplay(avg.carbs) + "</td><td>" + formatAmountForDisplay(avg.fat) + "</td></tr>";
+
+  const pctRow = "<tr class='percent-row'><td>Average % of Calories</td><td></td><td>" +
+    pct.protein + "%</td><td>" + pct.carbs + "%</td><td>" + pct.fat + "%</td></tr>";
+
+  return "<div class='averages-box'>" +
+    "<h3 style=\"font-family:'Manrope',sans-serif; font-size:14px; font-weight:800; margin:0 0 6px;\">Period Averages (" + nutritionDays.length + " logged day" + (nutritionDays.length === 1 ? "" : "s") + ")</h3>" +
+    "<table class='report-table'><thead><tr><th></th><th>Cal</th><th>Prot</th><th>Carb</th><th>Fat</th></tr></thead>" +
+    "<tbody>" + avgRow + pctRow + "</tbody></table>" +
+  "</div>";
+
+}
+
+// ============================================================
+// PDF GENERATION
+// ============================================================
 
 function downloadPdf() {
 
@@ -297,47 +363,14 @@ function downloadPdf() {
       doc.setFontSize(11);
       doc.text("No nutrition entries logged in this date range.", 14, y);
       y += 8;
+    } else if (lastReport.detailLevel === "full") {
+      y = pdfFullDetailNutrition(doc, lastReport.nutritionDays, y);
     } else {
+      y = pdfSummaryNutrition(doc, lastReport.nutritionDays, y);
+    }
 
-      lastReport.nutritionDays.forEach(function(day) {
-
-        doc.setFontSize(12);
-        doc.text(day.date, 14, y);
-        y += 4;
-
-        const body = day.entries.map(function(e) {
-          return [e.meal, e.name, formatAmountForDisplay(e.amount) + " " + e.unit, formatAmountForDisplay(e.calories), formatAmountForDisplay(e.protein), formatAmountForDisplay(e.carbs), formatAmountForDisplay(e.fat)];
-        });
-
-        doc.autoTable({
-          startY: y,
-          head: [["Meal", "Item", "Amount", "Cal", "Prot", "Carb", "Fat"]],
-          body: body,
-          styles: { fontSize: 8 },
-          margin: { left: 14, right: 14 }
-        });
-
-        y = doc.lastAutoTable.finalY + 4;
-        doc.setFontSize(9);
-        doc.text(
-          "Day total: " + formatAmountForDisplay(day.totals.calories) + " cal, " + formatAmountForDisplay(day.totals.protein) + "g protein, " +
-          formatAmountForDisplay(day.totals.carbs) + "g carbs, " + formatAmountForDisplay(day.totals.fat) + "g fat", 14, y
-        );
-        y += 10;
-
-        if (y > 260) { doc.addPage(); y = 18; }
-
-      });
-
-      const avg = computeAverages(lastReport.nutritionDays);
-      doc.setFontSize(10);
-      doc.text(
-        "Period Averages (" + lastReport.nutritionDays.length + " logged day(s)): " +
-        avg.calories + " cal | " + avg.protein + "g protein | " + avg.carbs + "g carbs | " + avg.fat + "g fat",
-        14, y
-      );
-      y += 12;
-
+    if (lastReport.nutritionDays.length > 0) {
+      y = pdfAveragesTable(doc, lastReport.nutritionDays, y);
     }
 
   }
@@ -354,35 +387,122 @@ function downloadPdf() {
       doc.setFontSize(11);
       doc.text("No workouts logged in this date range.", 14, y);
     } else {
-
       lastReport.workoutDays.forEach(function(day) {
-
         doc.setFontSize(12);
         doc.text(day.date, 14, y);
         y += 4;
-
         const body = day.entries.map(function(e) {
           return [e.exercise, e.setNumber, formatAmountForDisplay(e.weight) + e.unit, e.reps, e.notes || ""];
         });
-
-        doc.autoTable({
-          startY: y,
-          head: [["Exercise", "Set", "Weight", "Reps", "Notes"]],
-          body: body,
-          styles: { fontSize: 8 },
-          margin: { left: 14, right: 14 }
-        });
-
+        doc.autoTable({ startY: y, head: [["Exercise", "Set", "Weight", "Reps", "Notes"]], body: body, styles: { fontSize: 8 }, margin: { left: 14, right: 14 } });
         y = doc.lastAutoTable.finalY + 10;
         if (y > 260) { doc.addPage(); y = 18; }
-
       });
-
     }
 
   }
 
   doc.save("Report-" + lastReport.startDate + "-to-" + lastReport.endDate + ".pdf");
+
+}
+
+function pdfFullDetailNutrition(doc, nutritionDays, y) {
+
+  nutritionDays.forEach(function(day) {
+
+    doc.setFontSize(12);
+    doc.text(day.date, 14, y);
+    y += 4;
+
+    const itemBody = day.entries.map(function(e) {
+      return [e.meal, e.name, formatAmountForDisplay(e.amount) + " " + e.unit, formatAmountForDisplay(e.calories), formatAmountForDisplay(e.protein), formatAmountForDisplay(e.carbs), formatAmountForDisplay(e.fat)];
+    });
+
+    const pct = calculateMacroPercents(day.totals);
+    itemBody.push([
+      { content: "Day Total", styles: { fontStyle: "bold" } }, "", "",
+      { content: formatAmountForDisplay(day.totals.calories), styles: { fontStyle: "bold" } },
+      { content: formatAmountForDisplay(day.totals.protein), styles: { fontStyle: "bold" } },
+      { content: formatAmountForDisplay(day.totals.carbs), styles: { fontStyle: "bold" } },
+      { content: formatAmountForDisplay(day.totals.fat), styles: { fontStyle: "bold" } }
+    ]);
+    itemBody.push([
+      { content: "% of Calories", styles: { fontStyle: "italic" } }, "", "", "",
+      pct.protein + "%", pct.carbs + "%", pct.fat + "%"
+    ]);
+
+    doc.autoTable({
+      startY: y,
+      head: [["Meal", "Item", "Amount", "Cal", "Prot", "Carb", "Fat"]],
+      body: itemBody,
+      styles: { fontSize: 8 },
+      margin: { left: 14, right: 14 }
+    });
+
+    y = doc.lastAutoTable.finalY + 10;
+    if (y > 260) { doc.addPage(); y = 18; }
+
+  });
+
+  return y;
+
+}
+
+function pdfSummaryNutrition(doc, nutritionDays, y) {
+
+  const body = nutritionDays.map(function(day) {
+    const pct = calculateMacroPercents(day.totals);
+    return [day.date, formatAmountForDisplay(day.totals.calories), formatAmountForDisplay(day.totals.protein),
+      formatAmountForDisplay(day.totals.carbs), formatAmountForDisplay(day.totals.fat), pct.protein + "%", pct.carbs + "%", pct.fat + "%"];
+  });
+
+  doc.autoTable({
+    startY: y,
+    head: [["Date", "Cal", "Prot", "Carb", "Fat", "%P", "%C", "%F"]],
+    body: body,
+    styles: { fontSize: 8 },
+    margin: { left: 14, right: 14 }
+  });
+
+  return doc.lastAutoTable.finalY + 10;
+
+}
+
+function pdfAveragesTable(doc, nutritionDays, y) {
+
+  if (y > 250) { doc.addPage(); y = 18; }
+
+  const avg = computeAverages(nutritionDays);
+  const pct = calculateMacroPercents(avg);
+
+  doc.setFontSize(12);
+  doc.setTextColor(0);
+  doc.text("Period Averages (" + nutritionDays.length + " logged day" + (nutritionDays.length === 1 ? "" : "s") + ")", 14, y);
+  y += 4;
+
+  const body = [
+    [
+      { content: "Average", styles: { fontStyle: "bold" } },
+      { content: formatAmountForDisplay(avg.calories), styles: { fontStyle: "bold" } },
+      { content: formatAmountForDisplay(avg.protein), styles: { fontStyle: "bold" } },
+      { content: formatAmountForDisplay(avg.carbs), styles: { fontStyle: "bold" } },
+      { content: formatAmountForDisplay(avg.fat), styles: { fontStyle: "bold" } }
+    ],
+    [
+      { content: "Average % of Calories", styles: { fontStyle: "italic" } },
+      "", pct.protein + "%", pct.carbs + "%", pct.fat + "%"
+    ]
+  ];
+
+  doc.autoTable({
+    startY: y,
+    head: [["", "Cal", "Prot", "Carb", "Fat"]],
+    body: body,
+    styles: { fontSize: 8 },
+    margin: { left: 14, right: 14 }
+  });
+
+  return doc.lastAutoTable.finalY + 12;
 
 }
 
