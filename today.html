@@ -943,7 +943,11 @@ function submitExerciseLog() {
 
   sessionExercises.forEach(function(ex) {
     ex.sets.forEach(function(s) {
-      sets.push({ date: date, workoutName: workoutName, exercise: ex.name, setNumber: s.setNumber, weight: s.weight, unit: s.unit, reps: s.reps, notes: s.notes });
+      sets.push({
+        date: date, workoutName: workoutName, exercise: ex.name, setNumber: s.setNumber,
+        weight: s.weight, unit: s.unit, reps: s.reps, notes: s.notes,
+        durationMinutes: s.durationMinutes, distance: s.distance, stroke: s.stroke, laps: s.laps
+      });
     });
   });
 
@@ -1126,14 +1130,25 @@ function renderWorkoutEntries(entries) {
   let html = workoutName ? "<div class='helper' style='margin-top:0;'>" + escapeHtml(workoutName) + "</div>" : "";
 
   html += Object.keys(groups).map(function(exercise) {
+
     const sets = groups[exercise].sort(function(a, b) { return (a.setNumber || 0) - (b.setNumber || 0); });
+    const exerciseType = sets[0].exerciseType || "strength";
+
     const setsHtml = sets.map(function(s) {
-      return "<div class='set-row'><span>Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps +
-        (s.notes ? " — " + escapeHtml(s.notes) : "") + "</span>" +
+      return "<div class='set-row'><span>" + formatSetLine(exerciseType, s) + "</span>" +
         "<button class='set-delete-btn' onclick='deleteSet(" + jsStringLiteral(s.id) + ")'>&times;</button></div>";
     }).join("");
+
+    let swimTotalHtml = "";
+    if (exerciseType === "swim") {
+      const totalLaps = sets.reduce(function(sum, s) { return sum + (Number(s.laps) || 0); }, 0);
+      const totalTime = sets.reduce(function(sum, s) { return sum + (Number(s.durationMinutes) || 0); }, 0);
+      swimTotalHtml = "<div class='helper' style='margin-top:6px; margin-bottom:0;'>Total: " + totalLaps + " laps" + (totalTime ? " &middot; " + formatAmountForDisplay(totalTime) + " min" : "") + "</div>";
+    }
+
     return "<div class='exercise-group-row'><h3 style=\"font-family:'Manrope',sans-serif; font-size:14px; font-weight:800; margin:0 0 6px;\">" +
-      escapeHtml(exercise) + "</h3>" + setsHtml + "</div>";
+      escapeHtml(exercise) + "</h3>" + setsHtml + swimTotalHtml + "</div>";
+
   }).join("");
 
   container.innerHTML = html;

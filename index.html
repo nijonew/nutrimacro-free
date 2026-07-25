@@ -12,27 +12,6 @@
 <link rel="stylesheet" href="./style.css">
 <style>
 
-  .quick-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .quick-link {
-    display: block;
-    background: var(--bg);
-    border-radius: 10px;
-    padding: 16px 12px;
-    text-align: center;
-    text-decoration: none;
-    color: var(--ink);
-    font-family: 'Manrope', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-  }
-
-  .quick-link:active { opacity: 0.75; }
-
   .auth-toggle-link {
     display: block;
     text-align: center;
@@ -45,6 +24,7 @@
     color: var(--accent);
     font-weight: 700;
     text-decoration: none;
+    cursor: pointer;
   }
 
   .forgot-link {
@@ -54,7 +34,18 @@
     font-size: 12px;
     color: var(--ink-soft);
     text-decoration: none;
+    cursor: pointer;
   }
+
+  .password-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -8px 0 14px;
+  }
+
+  .password-toggle-row input[type="checkbox"] { width: auto; margin: 0; }
+  .password-toggle-row label { margin: 0; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
 
 </style>
 </head>
@@ -69,7 +60,7 @@
 
 <main>
 
-  <!-- ============ LOGIN / SIGNUP (shown when not signed in) ============ -->
+  <!-- ============ LOGIN / SIGNUP ============ -->
   <div class="card" id="authCard" style="display:none;">
 
     <h2 id="authHeading">Sign In</h2>
@@ -78,7 +69,12 @@
     <input type="text" id="emailInput" placeholder="you@example.com" autocomplete="username">
 
     <label for="passwordInput">Password</label>
-    <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password">
+    <input type="password" id="passwordInput" placeholder="At least 8 characters" autocomplete="current-password">
+
+    <div class="password-toggle-row">
+      <input type="checkbox" id="showPasswordCheck" onchange="toggleShowPassword()">
+      <label for="showPasswordCheck">Show password</label>
+    </div>
 
     <button id="authSubmitBtn" onclick="submitAuth()">Sign In</button>
     <div class="result-box" id="authResultBox"></div>
@@ -91,26 +87,20 @@
 
   </div>
 
-  <!-- ============ DASHBOARD (shown when signed in) ============ -->
-  <div id="dashboardArea" style="display:none;">
+  <!-- ============ SET NEW PASSWORD (shown only via a password reset email link) ============ -->
+  <div class="card" id="resetCard" style="display:none;">
 
-    <div class="card">
-      <h2>Quick actions</h2>
-      <div class="quick-grid">
-        <a class="quick-link" href="./log.html">Log Food</a>
-        <a class="quick-link" href="./today.html">Today</a>
-        <a class="quick-link" href="./recipe.html">Build a Recipe</a>
-        <a class="quick-link" href="./workout.html">Log Workout</a>
-        <a class="quick-link" href="./add-food.html">Add Food</a>
-        <a class="quick-link" href="./workout-history.html">Workout History</a>
-        <a class="quick-link" href="./progress.html">Log Progress</a>
-        <a class="quick-link" href="./achievements.html">Achievements</a>
-      </div>
-    </div>
+    <h2>Set a New Password</h2>
+    <div class="helper" style="margin-top:-4px;">You're here because you clicked a password reset link. Choose a new password below to finish.</div>
 
-    <div class="card">
-      <button class="secondary" onclick="handleLogOut()">Sign Out</button>
-    </div>
+    <label for="newPasswordInput">New Password</label>
+    <input type="password" id="newPasswordInput" placeholder="At least 8 characters" autocomplete="new-password">
+
+    <label for="confirmPasswordInput">Confirm New Password</label>
+    <input type="password" id="confirmPasswordInput" placeholder="Re-enter your new password" autocomplete="new-password">
+
+    <button onclick="submitNewPassword()">Set New Password</button>
+    <div class="result-box" id="resetResultBox"></div>
 
   </div>
 
@@ -122,29 +112,55 @@
 <script>
 
 let authMode = "login"; // "login" or "signup"
+let isPasswordRecovery = false;
+
+// Supabase fires this when the recovery-link session is established —
+// this MUST be listened for before the normal getSession() check runs,
+// otherwise a recovery visit looks identical to a normal logged-in visit
+// and the person gets bounced straight to Daily Log without ever being
+// asked to set a new password.
+sb.auth.onAuthStateChange(function(event, session) {
+  if (event === "PASSWORD_RECOVERY") {
+    isPasswordRecovery = true;
+    showResetForm();
+  }
+});
 
 window.addEventListener("load", async function() {
 
   registerServiceWorker();
 
+  // Give onAuthStateChange a brief moment to fire for PASSWORD_RECOVERY
+  // before deciding what to show, since it can arrive just after load.
+  await new Promise(function(resolve) { setTimeout(resolve, 150); });
+
+  if (isPasswordRecovery) return; // showResetForm() already ran
+
   const { data } = await sb.auth.getSession();
 
   if (data.session) {
-    showDashboard();
+    window.location.href = "./today.html";
   } else {
     showAuthForm();
   }
 
 });
 
-function showDashboard() {
-  window.location.href = "./today.html";
-}
-
 function showAuthForm() {
   document.getElementById("headerTitle").textContent = "Welcome";
   document.getElementById("authCard").style.display = "block";
-  document.getElementById("dashboardArea").style.display = "none";
+  document.getElementById("resetCard").style.display = "none";
+}
+
+function showResetForm() {
+  document.getElementById("headerTitle").textContent = "Reset Password";
+  document.getElementById("authCard").style.display = "none";
+  document.getElementById("resetCard").style.display = "block";
+}
+
+function toggleShowPassword() {
+  const show = document.getElementById("showPasswordCheck").checked;
+  document.getElementById("passwordInput").type = show ? "text" : "password";
 }
 
 function setAuthMode(mode) {
@@ -172,13 +188,25 @@ function setAuthMode(mode) {
 
 }
 
+function isStrongEnough(password) {
+  // Baseline: 8+ characters. This is a client-side floor for a good
+  // error message — Supabase's own project-level minimum (set in
+  // Authentication settings) is the real enforcement backstop.
+  return password && password.length >= 8;
+}
+
 function submitAuth() {
 
   const email = document.getElementById("emailInput").value.trim();
   const password = document.getElementById("passwordInput").value;
 
   if (!email) { showAuthResult(false, "Enter your email."); return; }
-  if (!password || password.length < 6) { showAuthResult(false, "Password must be at least 6 characters."); return; }
+
+  if (authMode === "signup" && !isStrongEnough(password)) {
+    showAuthResult(false, "Password must be at least 8 characters.");
+    return;
+  }
+  if (!password) { showAuthResult(false, "Enter your password."); return; }
 
   showAuthResult(true, authMode === "signup" ? "Creating account..." : "Signing in...");
 
@@ -190,10 +218,17 @@ function submitAuth() {
       showAuthResult(true, "Account created. Check your email if confirmation is required, otherwise you're signed in.");
     }
 
-    showDashboard();
+    window.location.href = "./today.html";
 
   }).catch(function(err) {
-    showAuthResult(false, err.message);
+    // Deliberately generic on login failure — never confirm or deny
+    // whether an email address has an account, which would let someone
+    // enumerate valid accounts by testing addresses one at a time.
+    if (authMode === "login") {
+      showAuthResult(false, "Incorrect email or password.");
+    } else {
+      showAuthResult(false, err.message);
+    }
   });
 
 }
@@ -203,22 +238,46 @@ function forgotPassword() {
   const email = document.getElementById("emailInput").value.trim();
   if (!email) { showAuthResult(false, "Enter your email above first, then tap this link again."); return; }
 
+  showAuthResult(true, "Sending...");
+
   sendPasswordReset(email).then(function() {
-    showAuthResult(true, "Password reset email sent to " + email + ".");
-  }).catch(function(err) {
-    showAuthResult(false, err.message);
+    // Same message whether or not the email actually has an account —
+    // again, avoids leaking which addresses are registered.
+    showAuthResult(true, "If an account exists for " + email + ", a reset link has been sent.");
+  }).catch(function() {
+    showAuthResult(true, "If an account exists for " + email + ", a reset link has been sent.");
   });
 
 }
 
-function handleLogOut() {
-  logOut().then(function() {
-    showAuthForm();
+function submitNewPassword() {
+
+  const newPassword = document.getElementById("newPasswordInput").value;
+  const confirmPassword = document.getElementById("confirmPasswordInput").value;
+
+  if (!isStrongEnough(newPassword)) { showResetResult(false, "Password must be at least 8 characters."); return; }
+  if (newPassword !== confirmPassword) { showResetResult(false, "Passwords don't match."); return; }
+
+  showResetResult(true, "Updating password...");
+
+  sb.auth.updateUser({ password: newPassword }).then(function(result) {
+    if (result.error) { showResetResult(false, result.error.message); return; }
+    showResetResult(true, "Password updated. Redirecting...");
+    setTimeout(function() { window.location.href = "./today.html"; }, 1200);
+  }).catch(function(err) {
+    showResetResult(false, err.message);
   });
+
 }
 
 function showAuthResult(ok, message) {
   const box = document.getElementById("authResultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+function showResetResult(ok, message) {
+  const box = document.getElementById("resetResultBox");
   box.className = "result-box " + (ok ? "ok" : "error");
   box.textContent = message;
 }
