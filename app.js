@@ -127,6 +127,7 @@ async function routeAction(action, params) {
     case "saveRecipe": return saveRecipe(params.recipeName, params.ingredients, params.servings);
     case "recalculateRecipe": return recalculateRecipe(params.recipeName);
     case "getRecipeForEditing": return getRecipeForEditing(params.name);
+    case "deleteRecipe": return deleteRecipe(params.name);
 
     case "getDailyLogEntries": return getDailyLogEntries(params.date);
     case "batchLogEntries": return batchLogEntries(params.entries);
@@ -143,7 +144,8 @@ async function routeAction(action, params) {
     case "deleteFavoriteMeal": return deleteFavoriteMeal(params.name);
 
     case "getExerciseNames": return getExerciseNames();
-    case "addExercise": return addExercise(params.name, params.category, params.notes);
+    case "getExercisesWithType": return getExercisesWithType();
+    case "addExercise": return addExercise(params.name, params.category, params.notes, params.exerciseType);
     case "getExerciseHistory": return getExerciseHistory(params.exercise, params.sessionLimit);
     case "getWorkoutEntries": return getWorkoutEntries(params.date);
     case "deleteWorkoutSet": return deleteWorkoutSet(params.id);
@@ -316,6 +318,23 @@ async function getRecipeForEditing(recipeName) {
 
 }
 
+async function deleteRecipe(recipeName) {
+  const userId = await getCurrentUserId();
+  const { data: recipe, error } = await sb.from("recipes").select("id").ilike("name", recipeName).eq("user_id", userId).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!recipe) throw new Error("Recipe not found: " + recipeName);
+
+  // Daily Log rows that used this recipe keep their historical macro
+  // snapshot regardless, but their recipe_id must be cleared first —
+  // otherwise the delete below fails on a foreign key constraint.
+  const { error: unlinkError } = await sb.from("daily_log").update({ recipe_id: null }).eq("recipe_id", recipe.id).eq("user_id", userId);
+  if (unlinkError) throw new Error(unlinkError.message);
+
+  const { error: deleteError } = await sb.from("recipes").delete().eq("id", recipe.id);
+  if (deleteError) throw new Error(deleteError.message);
+  return { deleted: true };
+}
+
 async function recalculateRecipe(recipeName) {
   const { data: recipe, error } = await sb.from("recipes").select("id").ilike("name", recipeName).maybeSingle();
   if (error) throw new Error(error.message);
@@ -406,7 +425,7 @@ async function getDailyLogEntries(dateStr) {
   const entries = data.map(function(row) {
     return {
       id: row.id, meal: row.meal, type: row.food_id ? "Food" : "Recipe",
-      name: row.foods ? row.foods.name : (row.recipes ? row.recipes.name : ""),
+      name: row.foods ? row.foods.name : (row.recipes ? row.recipes.name : "(deleted recipe)"),
       amount: row.amount, unit: row.unit, calories: row.calories, protein: row.protein,
       fat: row.fat, carbs: row.carbs, fiber: row.fiber, netCarbs: row.net_carbs, notes: row.notes
     };
@@ -517,7 +536,18 @@ async function getExerciseNames() {
   return data.map(function(row) { return row.name; });
 }
 
-async function addExercise(name, category, notes) {
+/**
+ * Returns each exercise's name alongside its type (strength/cardio/swim)
+ * so the workout logging UI knows which input fields to show — weight+reps,
+ * duration+distance, or stroke+laps+time.
+ */
+async function getExercisesWithType() {
+  const { data, error } = await sb.from("exercises").select("name, exercise_type, category").eq("active", true).order("name");
+  if (error) throw new Error(error.message);
+  return data.map(function(row) { return { name: row.name, exerciseType: row.exercise_type || "strength", category: row.category }; });
+}
+
+async function addExercise(name, category, notes, exerciseType) {
   if (!name) throw new Error("Exercise name is required.");
 
   const { data: existing } = await sb.from("exercises").select("id").ilike("name", name).maybeSingle();
@@ -525,7 +555,8 @@ async function addExercise(name, category, notes) {
 
   const userId = await getCurrentUserId();
   const { data, error } = await sb.from("exercises").insert({
-    user_id: userId, name: name, category: category || null, notes: notes || null, active: true
+    user_id: userId, name: name, category: category || null, notes: notes || null,
+    exercise_type: exerciseType || "strength", active: true
   }).select("name").single();
 
   if (error) throw new Error(error.message);
@@ -536,14 +567,14 @@ async function getExerciseHistory(exerciseName, sessionLimit) {
 
   sessionLimit = sessionLimit || 1;
 
-  const { data: exercise } = await sb.from("exercises").select("id").ilike("name", exerciseName).maybeSingle();
+  const { data: exercise } = await sb.from("exercises").select("id, exercise_type").ilike("name", exerciseName).maybeSingle();
   if (!exercise) return { sessions: [] };
 
   // Pull recent rows for this exercise, newest first. 200 is generous
   // headroom for grouping into `sessionLimit` distinct workout days.
   const { data, error } = await sb
     .from("workout_log")
-    .select("log_date, set_number, weight, unit, reps, notes")
+    .select("log_date, set_number, weight, unit, reps, notes, duration_minutes, distance, stroke, laps")
     .eq("exercise_id", exercise.id)
     .order("log_date", { ascending: false })
     .limit(200);
@@ -554,7 +585,10 @@ async function getExerciseHistory(exerciseName, sessionLimit) {
   const byDate = {};
   data.forEach(function(row) {
     if (!byDate[row.log_date]) byDate[row.log_date] = [];
-    byDate[row.log_date].push({ setNumber: row.set_number, weight: row.weight, unit: row.unit, reps: row.reps, notes: row.notes });
+    byDate[row.log_date].push({
+      setNumber: row.set_number, weight: row.weight, unit: row.unit, reps: row.reps, notes: row.notes,
+      durationMinutes: row.duration_minutes, distance: row.distance, stroke: row.stroke, laps: row.laps
+    });
   });
 
   const dateKeys = Object.keys(byDate).sort().reverse().slice(0, sessionLimit);
@@ -564,14 +598,14 @@ async function getExerciseHistory(exerciseName, sessionLimit) {
     return { date: dateKey, sets: sets };
   });
 
-  return { sessions: sessions };
+  return { sessions: sessions, exerciseType: exercise.exercise_type || "strength" };
 
 }
 
 async function getWorkoutEntries(dateStr) {
   const { data, error } = await sb
     .from("workout_log")
-    .select("id, workout_name, set_number, weight, unit, reps, notes, exercises(name)")
+    .select("id, workout_name, set_number, weight, unit, reps, notes, duration_minutes, distance, stroke, laps, exercises(name, exercise_type)")
     .eq("log_date", dateStr);
 
   if (error) throw new Error(error.message);
@@ -579,7 +613,9 @@ async function getWorkoutEntries(dateStr) {
   const entries = data.map(function(row) {
     return {
       id: row.id, workoutName: row.workout_name, exercise: row.exercises ? row.exercises.name : "",
-      setNumber: row.set_number, weight: row.weight, unit: row.unit, reps: row.reps, notes: row.notes
+      exerciseType: row.exercises ? (row.exercises.exercise_type || "strength") : "strength",
+      setNumber: row.set_number, weight: row.weight, unit: row.unit, reps: row.reps, notes: row.notes,
+      durationMinutes: row.duration_minutes, distance: row.distance, stroke: row.stroke, laps: row.laps
     };
   });
 
@@ -600,7 +636,8 @@ async function logOneWorkoutSet(userId, s) {
 
   const { error } = await sb.from("workout_log").insert({
     user_id: userId, log_date: s.date, workout_name: s.workoutName || null, exercise_id: exercise.id,
-    set_number: s.setNumber, weight: s.weight, unit: s.unit || "lb", reps: s.reps, notes: s.notes || null
+    set_number: s.setNumber, weight: s.weight || null, unit: s.unit || null, reps: s.reps || null, notes: s.notes || null,
+    duration_minutes: s.durationMinutes || null, distance: s.distance || null, stroke: s.stroke || null, laps: s.laps || null
   });
   if (error) throw new Error(error.message);
 }
@@ -938,10 +975,10 @@ function injectNavMenu() {
 
   const groups = [
     { section: "Nutrition", items: [
-      { href: "./index.html", label: "Home / Dashboard" },
       { href: "./log.html", label: "Log Food or Recipe" },
       { href: "./today.html", label: "Daily Log" },
       { href: "./recipe.html", label: "Build a Recipe" },
+      { href: "./edit-recipe.html", label: "Edit a Recipe" },
       { href: "./add-food.html", label: "Add Food Manually" },
       { href: "./bulk-import.html", label: "Bulk Import Foods" },
       { href: "./edit-food.html", label: "Edit a Food" }
@@ -957,7 +994,8 @@ function injectNavMenu() {
     ]},
     { section: "Account", items: [
       { href: "./settings.html", label: "Settings" },
-      { href: "./report.html", label: "Reports" }
+      { href: "./report.html", label: "Reports" },
+      { action: "signOutFromNav()", label: "Sign Out" }
     ]}
   ];
 
@@ -969,8 +1007,12 @@ function injectNavMenu() {
   groups.forEach(function(group) {
     html += "<div class='nav-section-label'>" + group.section + "</div>";
     group.items.forEach(function(item) {
-      const isActive = item.href.replace("./", "") === currentPath;
-      html += "<a class='nav-link" + (isActive ? " active" : "") + "' href='" + item.href + "'>" + item.label + "</a>";
+      if (item.action) {
+        html += "<a class='nav-link' href='javascript:void(0)' onclick='" + item.action + "'>" + item.label + "</a>";
+      } else {
+        const isActive = item.href.replace("./", "") === currentPath;
+        html += "<a class='nav-link" + (isActive ? " active" : "") + "' href='" + item.href + "'>" + item.label + "</a>";
+      }
     });
   });
 
@@ -983,6 +1025,12 @@ function injectNavMenu() {
 function toggleNavPanel() {
   const overlay = document.getElementById("navOverlay");
   if (overlay) overlay.classList.toggle("open");
+}
+
+function signOutFromNav() {
+  logOut().then(function() {
+    window.location.href = "./index.html";
+  });
 }
 
 function closeNavPanel() {

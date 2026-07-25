@@ -12,20 +12,87 @@
 <link rel="stylesheet" href="./style.css">
 <style>
 
-  .totals-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 4px;
+  /* ===== Date header ===== */
+  .date-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+  .date-nav button { width: auto; padding: 10px 16px; font-size: 18px; background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
+  .date-display { flex: 1; text-align: center; }
+  .date-friendly { font-family: 'Manrope', sans-serif; font-size: 19px; font-weight: 800; }
+  input[type="date"]#dateInput {
+    margin-bottom: 0; margin-top: 4px; font-size: 16px; padding: 8px; text-align: center;
+    background: var(--bg); color: var(--ink); border: 1.5px solid var(--line); border-radius: 10px;
+  }
+  input[type="date"]#dateInput::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(1.6);
+    cursor: pointer;
   }
 
-  .total-tile {
+  /* ===== Log toggle + dropdown ===== */
+  .dropdown-wrap { position: relative; }
+  .dropdown-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    max-height: 340px;
+    overflow-y: auto;
+    z-index: 50;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  }
+  .dropdown-panel.open { display: block; }
+  .dropdown-group-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--ink-soft); padding: 10px 12px 4px;
+  }
+  .dropdown-item {
+    padding: 10px 12px; cursor: pointer; font-size: 14px; border-bottom: 1px solid var(--line);
+  }
+  .dropdown-item:active { background: var(--bg); }
+  .dropdown-item.action-item { color: var(--accent); font-weight: 700; }
+  .dropdown-empty { padding: 10px 12px; font-size: 12px; color: var(--ink-soft); }
+
+  .pending-item-box {
     background: var(--bg);
     border-radius: 10px;
-    padding: 12px 10px;
-    text-align: center;
+    padding: 14px;
+    margin-top: 12px;
   }
+  .pending-item-name { font-weight: 700; font-size: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .pending-item-name button { width: auto; padding: 2px 8px; background: transparent; border: none; color: var(--error); font-size: 16px; }
+  .pending-item-hint { font-size: 12px; color: var(--ink-soft); margin: -4px 0 10px; }
 
+  /* ===== Quick create inline form ===== */
+  #quickCreateForm { display: none; margin-top: 12px; }
+
+  /* ===== Exercise logging (ported from workout.html) ===== */
+  .exercise-card { background: var(--bg); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .exercise-card h3 { font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 800; margin: 0 0 8px; display: flex; justify-content: space-between; }
+  .exercise-card .remove-ex { width: auto; padding: 2px 8px; font-size: 16px; background: transparent; border: none; color: var(--error); }
+  .last-time-box { background: var(--surface); border-radius: 8px; padding: 10px; font-size: 12px; color: var(--ink-soft); margin-bottom: 10px; }
+  .last-time-box .lt-title { font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+  .set-input-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .set-input-row input { margin-bottom: 0; padding: 8px; font-size: 13px; }
+  .set-input-row .set-weight { width: 60px; }
+  .set-input-row .set-unit { width: 55px; }
+  .set-input-row .set-reps { width: 50px; }
+  .set-input-row .set-notes { flex: 1; }
+  .set-input-row button { width: auto; padding: 8px 12px; font-size: 13px; }
+  .logged-set-row { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .logged-set-row:last-child { border-bottom: none; }
+  .logged-set-row .remove-set { width: auto; padding: 0 6px; background: transparent; border: none; color: var(--error); font-size: 15px; }
+
+  /* ===== Combined day view ===== */
+  .section-heading {
+    font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft);
+    margin: 18px 0 8px;
+  }
+  .section-heading:first-child { margin-top: 0; }
+
+  .totals-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .total-tile { background: var(--bg); border-radius: 10px; padding: 12px 10px; text-align: center; }
   .total-tile .value { font-family: 'Manrope', sans-serif; font-size: 20px; font-weight: 800; }
   .total-tile .label { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
   .total-tile.protein .value { color: var(--protein); }
@@ -34,19 +101,12 @@
 
   .meal-group { margin-bottom: 18px; }
   .meal-group:last-child { margin-bottom: 0; }
-
   .meal-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
   .meal-header h3 { font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 800; margin: 0; }
   .meal-header .meal-cal { font-size: 12px; color: var(--ink-soft); }
 
-  .repeat-btn {
-    width: auto; padding: 5px 10px; font-size: 11px;
-    background: var(--bg); color: var(--ink-soft); border: 1px solid var(--line); margin-top: 6px;
-  }
-
   .entry-row, .exercise-group-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
   .entry-row:last-child, .exercise-group-row:last-child { border-bottom: none; }
-
   .entry-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; }
   .entry-name { font-weight: 600; }
   .entry-meta { font-size: 12px; color: var(--ink-soft); margin-top: 3px; }
@@ -64,10 +124,6 @@
   .entry-edit-form input, .entry-edit-form select { margin-bottom: 8px; }
   .entry-edit-form button { width: auto; padding: 8px 14px; font-size: 13px; margin-right: 6px; }
 
-  .date-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
-  .date-nav button { width: auto; padding: 8px 12px; background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
-  .date-nav input { margin-bottom: 0; text-align: center; }
-
   .set-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--line); }
   .set-row:last-child { border-bottom: none; }
   .set-delete-btn { width: auto; padding: 0 6px; font-size: 15px; background: transparent; border: none; color: var(--error); }
@@ -75,7 +131,6 @@
   .progress-summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 14px; margin-top: 4px; }
   .progress-summary-grid .label { color: var(--ink-soft); }
   .progress-summary-grid .value { font-weight: 700; font-family: 'Manrope', sans-serif; }
-
   .ach-earned-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
   .ach-earned-row:last-child { border-bottom: none; }
 
@@ -88,126 +143,232 @@
     <div class="eyebrow">Overview</div>
     <h1>Daily Log</h1>
   </div>
-  <a class="back" href="./log.html">Log &rarr;</a>
 </header>
 
 <main>
 
+  <!-- ============ DATE HEADER ============ -->
   <div class="card">
     <div class="date-nav">
       <button onclick="shiftDate(-1)">&larr;</button>
-      <input type="date" id="dateInput" onchange="onDateChange()">
+      <div class="date-display">
+        <div class="date-friendly" id="dateFriendly">–</div>
+        <input type="date" id="dateInput" onchange="onDateChange()">
+      </div>
       <button onclick="shiftDate(1)">&rarr;</button>
     </div>
+  </div>
 
+  <!-- ============ LOG SOMETHING ============ -->
+  <div class="card">
     <div class="segmented">
-      <button class="active" id="tabFoodBtn" onclick="setTab('food')">Food</button>
-      <button id="tabWorkoutsBtn" onclick="setTab('workouts')">Workouts</button>
-      <button id="tabProgressBtn" onclick="setTab('progress')">Progress</button>
+      <button class="active" id="modeFoodBtn" onclick="setLogMode('food')">Food</button>
+      <button id="modeExerciseBtn" onclick="setLogMode('exercise')">Exercise</button>
     </div>
-  </div>
 
-  <!-- ============ FOOD TAB ============ -->
-  <div id="foodTab">
+    <!-- ---- FOOD MODE ---- -->
+    <div id="foodLogPanel">
 
-    <div class="card">
-      <div class="totals-grid">
-        <div class="total-tile">
-          <div class="value" id="totalCalories">–</div>
-          <div class="label">Calories</div>
-        </div>
-        <div class="total-tile protein">
-          <div class="pct-label" id="pctProtein"></div>
-          <div class="value" id="totalProtein">–</div>
-          <div class="label">Protein (g)</div>
-        </div>
-        <div class="total-tile carbs">
-          <div class="pct-label" id="pctCarbs"></div>
-          <div class="value" id="totalCarbs">–</div>
-          <div class="label">Carbs (g)</div>
-        </div>
-        <div class="total-tile fat">
-          <div class="pct-label" id="pctFat"></div>
-          <div class="value" id="totalFat">–</div>
-          <div class="label">Fat (g)</div>
-        </div>
-        <div class="total-tile">
-          <div class="value" id="totalFiber">–</div>
-          <div class="label">Fiber (g)</div>
-        </div>
-        <div class="total-tile">
-          <div class="value" id="totalNetCarbs">–</div>
-          <div class="label">Net Carbs (g)</div>
-        </div>
+      <div class="dropdown-wrap">
+        <label for="itemSearchInput">What are you logging?</label>
+        <input type="text" id="itemSearchInput" placeholder="Search or tap to browse..."
+          oninput="onItemSearchInput()" onfocus="onItemSearchFocus()"
+          onkeypress="if(event.key==='Enter'){event.preventDefault();onItemEnterPressed();}">
+        <div class="dropdown-panel" id="itemDropdownPanel"></div>
       </div>
+
+      <button class="secondary" id="scanBarcodeBtn" style="margin-top:10px;" onclick="openBarcodeScanner()">&#128247; Scan Barcode</button>
+
+      <div id="quickCreateForm">
+        <label for="qcName">Food Name</label>
+        <input type="text" id="qcName" placeholder="e.g. Homemade Granola">
+        <div class="row-2">
+          <div>
+            <label for="qcServingSize">Serving Size</label>
+            <input type="text" id="qcServingSize" placeholder="e.g. 100">
+          </div>
+          <div>
+            <label for="qcServingUnit">Unit</label>
+            <select id="qcServingUnit">
+              <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option>
+              <option value="lb">lb</option><option value="ml">ml</option><option value="l">l</option>
+              <option value="piece">piece(s)</option>
+            </select>
+          </div>
+        </div>
+        <div class="row-2">
+          <div><label for="qcCalories">Calories</label><input type="text" id="qcCalories" placeholder="0"></div>
+          <div><label for="qcProtein">Protein (g)</label><input type="text" id="qcProtein" placeholder="0"></div>
+        </div>
+        <div class="row-2">
+          <div><label for="qcFat">Fat (g)</label><input type="text" id="qcFat" placeholder="0"></div>
+          <div><label for="qcCarbs">Carbs (g)</label><input type="text" id="qcCarbs" placeholder="0"></div>
+        </div>
+        <button onclick="quickCreateFood()">Create &amp; Select</button>
+        <div class="result-box" id="quickCreateResultBox"></div>
+      </div>
+
+      <div class="pending-item-box" id="pendingItemBox" style="display:none;">
+        <div class="pending-item-name">
+          <span id="pendingItemLabel"></span>
+          <button onclick="clearPendingItem()">&times;</button>
+        </div>
+        <div class="pending-item-hint" id="pendingItemHint"></div>
+        <div class="row-2">
+          <div>
+            <label for="pendingAmount">Amount</label>
+            <input type="text" id="pendingAmount" placeholder="e.g. 6">
+          </div>
+          <div>
+            <label for="pendingUnit">Unit</label>
+            <select id="pendingUnit">
+              <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option>
+              <option value="lb">lb</option><option value="ml">ml</option><option value="l">l</option>
+              <option value="tsp">tsp</option><option value="tbsp">tbsp</option><option value="cup">cup</option>
+              <option value="fl_oz">fl oz</option><option value="piece">piece(s)</option><option value="serving">serving(s)</option>
+            </select>
+          </div>
+        </div>
+        <label for="pendingMeal">Meal</label>
+        <select id="pendingMeal">
+          <option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option>
+        </select>
+      </div>
+
     </div>
 
-    <div class="card">
-      <h2>Entries</h2>
-      <div id="entriesList"><div class="empty-state">Loading...</div></div>
+    <!-- ---- EXERCISE MODE ---- -->
+    <div id="exerciseLogPanel" style="display:none;">
+
+      <label for="workoutNameInput">Workout Name (optional)</label>
+      <input type="text" id="workoutNameInput" placeholder="e.g. Push Day">
+
+      <label for="templateSelect">Start from a template (optional)</label>
+      <select id="templateSelect" onchange="onTemplateSelected()">
+        <option value="">— None, build freely —</option>
+      </select>
+
+      <label for="exerciseSearch" style="margin-top:14px;">Add an exercise</label>
+      <input type="text" id="exerciseSearch" placeholder="Start typing an exercise..." oninput="onExerciseSearch()">
+      <div class="result-list" id="exerciseResults" style="display:none;"></div>
+      <button class="secondary" style="margin-top:10px;" onclick="toggleAddExerciseForm()">+ Add a new exercise</button>
+
+      <div id="addExerciseForm" style="display:none; margin-top:12px;">
+        <label for="newExerciseName">Exercise Name</label>
+        <input type="text" id="newExerciseName" placeholder="e.g. Incline Dumbbell Press">
+        <label for="newExerciseType">Type</label>
+        <select id="newExerciseType">
+          <option value="strength">Strength (weight &amp; reps)</option>
+          <option value="cardio">Cardio (duration &amp; distance)</option>
+          <option value="swim">Swim (stroke &amp; laps)</option>
+        </select>
+        <label for="newExerciseCategory">Category (optional)</label>
+        <input type="text" id="newExerciseCategory" placeholder="e.g. Push, Pull, Legs">
+        <button onclick="createExercise()">Save &amp; Add to Session</button>
+      </div>
+
+      <div id="exerciseSessionList" style="margin-top:14px;"></div>
+
     </div>
 
   </div>
 
-  <!-- ============ WORKOUTS TAB ============ -->
-  <div id="workoutsTab" style="display:none;">
-    <div class="card">
-      <h2>Workout</h2>
-      <div id="workoutList"><div class="empty-state">Loading...</div></div>
+  <!-- ============ TODAY'S LOG (combined view) ============ -->
+  <div class="card">
+
+    <div class="section-heading">Food</div>
+    <div class="totals-grid">
+      <div class="total-tile"><div class="value" id="totalCalories">–</div><div class="label">Calories</div></div>
+      <div class="total-tile protein"><div class="pct-label" id="pctProtein"></div><div class="value" id="totalProtein">–</div><div class="label">Protein (g)</div></div>
+      <div class="total-tile carbs"><div class="pct-label" id="pctCarbs"></div><div class="value" id="totalCarbs">–</div><div class="label">Carbs (g)</div></div>
+      <div class="total-tile fat"><div class="pct-label" id="pctFat"></div><div class="value" id="totalFat">–</div><div class="label">Fat (g)</div></div>
+      <div class="total-tile"><div class="value" id="totalFiber">–</div><div class="label">Fiber (g)</div></div>
+      <div class="total-tile"><div class="value" id="totalNetCarbs">–</div><div class="label">Net Carbs (g)</div></div>
     </div>
+    <div id="entriesList"><div class="empty-state">Loading...</div></div>
+
+    <div class="section-heading">Workouts</div>
+    <div id="workoutList"><div class="empty-state">Loading...</div></div>
+
+    <div class="section-heading">Progress &amp; Achievements</div>
+    <div id="progressSummary"><div class="empty-state">Loading...</div></div>
+    <div id="achievementsForDay"></div>
+
   </div>
 
-  <!-- ============ PROGRESS TAB ============ -->
-  <div id="progressTab" style="display:none;">
-
-    <div class="card">
-      <h2>Progress entry</h2>
-      <div id="progressSummary"><div class="empty-state">Loading...</div></div>
-    </div>
-
-    <div class="card">
-      <h2>Achievements earned this day</h2>
-      <div id="achievementsForDay"><div class="empty-state">Loading...</div></div>
-    </div>
-
+  <!-- ============ SUBMIT ============ -->
+  <div class="card">
+    <label for="notesInput" id="notesLabel">Notes (optional)</label>
+    <textarea id="notesInput" rows="2"></textarea>
+    <button onclick="submitLog()">Submit Log</button>
+    <div class="result-box" id="submitResultBox"></div>
   </div>
 
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@zxing/library@0.20.0"></script>
 <script src="./calc.js"></script>
 <script src="./app.js"></script>
 <script>
 
 const MEAL_ORDER = ["Breakfast", "Lunch", "Dinner", "Snack"];
-let currentTab = "food";
+let logMode = "food";
+
+let localFoodNames = [];
+let localRecipeNames = [];
+let recentItems = [];
+let pendingItem = null; // { name, type, unit }
+
+let localExercises = []; // [{ name, exerciseType, category }]
+let sessionExercises = [];
 
 window.addEventListener("load", async function() {
 
   const session = await requireAuth();
   if (!session) return;
 
-  document.getElementById("dateInput").value = localDateString();
   registerServiceWorker();
+  document.getElementById("dateInput").value = localDateString();
+  updateFriendlyDate();
+
+  apiGet("getFoodNames").then(function(json) { if (json.success) localFoodNames = json.data; });
+  apiGet("getRecipeNames").then(function(json) { if (json.success) localRecipeNames = json.data; });
+  apiGet("getRecentFoods", { limit: 15 }).then(function(json) { if (json.success) recentItems = json.data; });
+  apiGet("getExercisesWithType").then(function(json) { if (json.success) localExercises = json.data; });
+  apiGet("getWorkoutTemplateNames").then(function(json) {
+    if (json.success) {
+      const select = document.getElementById("templateSelect");
+      json.data.forEach(function(name) {
+        const opt = document.createElement("option");
+        opt.value = name; opt.textContent = name;
+        select.appendChild(opt);
+      });
+    }
+  });
+
+  document.addEventListener("click", function(e) {
+    const wrap = document.querySelector(".dropdown-wrap");
+    if (wrap && !wrap.contains(e.target)) closeItemDropdown();
+  });
+
   loadDay();
 
 });
 
-function todayString() {
-  return localDateString();
-}
+// ============================================================
+// DATE HEADER
+// ============================================================
 
-function setTab(tab) {
-  currentTab = tab;
-  document.getElementById("tabFoodBtn").classList.toggle("active", tab === "food");
-  document.getElementById("tabWorkoutsBtn").classList.toggle("active", tab === "workouts");
-  document.getElementById("tabProgressBtn").classList.toggle("active", tab === "progress");
-  document.getElementById("foodTab").style.display = (tab === "food") ? "block" : "none";
-  document.getElementById("workoutsTab").style.display = (tab === "workouts") ? "block" : "none";
-  document.getElementById("progressTab").style.display = (tab === "progress") ? "block" : "none";
+function updateFriendlyDate() {
+  const dateStr = document.getElementById("dateInput").value;
+  const d = new Date(dateStr + "T00:00:00");
+  const formatted = d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+  document.getElementById("dateFriendly").textContent = formatted;
 }
 
 function onDateChange() {
+  updateFriendlyDate();
   loadDay();
 }
 
@@ -216,39 +377,626 @@ function shiftDate(days) {
   const current = new Date(input.value + "T00:00:00");
   current.setDate(current.getDate() + days);
   input.value = localDateString(current);
+  updateFriendlyDate();
   loadDay();
 }
 
-function loadDay() {
-  loadFoodTab();
-  loadWorkoutsTab();
-  loadProgressTab();
+function todayString() {
+  return localDateString();
 }
 
 // ============================================================
-// FOOD TAB
+// LOG MODE TOGGLE
 // ============================================================
 
-function loadFoodTab() {
+function setLogMode(mode) {
+  logMode = mode;
+  document.getElementById("modeFoodBtn").classList.toggle("active", mode === "food");
+  document.getElementById("modeExerciseBtn").classList.toggle("active", mode === "exercise");
+  document.getElementById("foodLogPanel").style.display = (mode === "food") ? "block" : "none";
+  document.getElementById("exerciseLogPanel").style.display = (mode === "exercise") ? "block" : "none";
+  document.getElementById("notesLabel").style.display = (mode === "food") ? "block" : "none";
+  document.getElementById("notesInput").style.display = (mode === "food") ? "block" : "none";
+}
+
+// ============================================================
+// FOOD LOGGING — unified dropdown
+// ============================================================
+
+function onItemSearchFocus() {
+  renderItemDropdown(document.getElementById("itemSearchInput").value.trim());
+}
+
+function onItemSearchInput() {
+  renderItemDropdown(document.getElementById("itemSearchInput").value.trim());
+}
+
+function onItemEnterPressed() {
+  const query = document.getElementById("itemSearchInput").value.trim();
+  if (query.length >= 2) runUsdaSearchInDropdown(query);
+}
+
+function closeItemDropdown() {
+  document.getElementById("itemDropdownPanel").classList.remove("open");
+}
+
+function filterList(list, query) {
+  if (!query) return list;
+  const q = query.toLowerCase();
+  return list.filter(function(name) { return name.toLowerCase().indexOf(q) !== -1; });
+}
+
+function renderItemDropdown(query) {
+
+  const panel = document.getElementById("itemDropdownPanel");
+  panel.classList.add("open");
+
+  const recentFoodNames = recentItems.filter(function(r) { return r.type === "Food"; }).map(function(r) { return r.name; }).slice(0, 5);
+  const recentRecipeNames = recentItems.filter(function(r) { return r.type === "Recipe"; }).map(function(r) { return r.name; }).slice(0, 3);
+
+  const filteredRecentFoods = filterList(recentFoodNames, query);
+  const filteredRecentRecipes = filterList(recentRecipeNames, query);
+  const filteredMyFoods = filterList(localFoodNames, query).slice(0, 200);
+
+  let html = "";
+
+  if (filteredRecentFoods.length > 0) {
+    html += "<div class='dropdown-group-label'>Recent Foods</div>";
+    html += filteredRecentFoods.map(function(name) {
+      return "<div class='dropdown-item' onclick='selectItem(" + jsStringLiteral(name) + ", \"Food\")'>" + escapeHtml(name) + "</div>";
+    }).join("");
+  }
+
+  if (filteredRecentRecipes.length > 0) {
+    html += "<div class='dropdown-group-label'>Recent Recipes</div>";
+    html += filteredRecentRecipes.map(function(name) {
+      return "<div class='dropdown-item' onclick='selectItem(" + jsStringLiteral(name) + ", \"Recipe\")'>" + escapeHtml(name) + "</div>";
+    }).join("");
+  }
+
+  html += "<div class='dropdown-group-label'>Actions</div>";
+  html += "<div class='dropdown-item action-item' onclick='startQuickCreate()'>+ Create New Food</div>";
+  html += "<div class='dropdown-item action-item' onclick=\"window.location.href='./recipe.html'\">+ Create New Recipe</div>";
+
+  html += "<div class='dropdown-group-label'>My Foods</div>";
+  if (filteredMyFoods.length === 0) {
+    html += "<div class='dropdown-empty'>No matches in your Foods list.</div>";
+  } else {
+    html += filteredMyFoods.map(function(name) {
+      return "<div class='dropdown-item' onclick='selectItem(" + jsStringLiteral(name) + ", \"Food\")'>" + escapeHtml(name) + "</div>";
+    }).join("");
+  }
+
+  if (query.length >= 2) {
+    html += "<div class='dropdown-group-label'>USDA Database</div>";
+    html += "<div class='dropdown-item action-item' id='usdaSearchTrigger' onclick='runUsdaSearchInDropdown(" + jsStringLiteral(query) + ")'>Search USDA for &ldquo;" + escapeHtml(query) + "&rdquo;</div>";
+    html += "<div id='usdaDropdownResults'></div>";
+  }
+
+  panel.innerHTML = html;
+
+}
+
+function runUsdaSearchInDropdown(query) {
+
+  const resultsEl = document.getElementById("usdaDropdownResults");
+  if (!resultsEl) return;
+  resultsEl.innerHTML = "<div class='dropdown-empty'>Searching USDA...</div>";
+
+  apiGet("searchFoods", { query: query }).then(function(json) {
+
+    if (!json.success) { resultsEl.innerHTML = "<div class='dropdown-empty'>" + escapeHtml(json.error) + "</div>"; return; }
+    if (json.data.length === 0) { resultsEl.innerHTML = "<div class='dropdown-empty'>No USDA results found.</div>"; return; }
+
+    resultsEl.innerHTML = json.data.map(function(food) {
+      return "<div class='dropdown-item' onclick='importAndSelectUsda(" + food.fdcId + ")'>" + escapeHtml(food.description) +
+        (food.brand ? " <span style='color:var(--ink-soft); font-size:12px;'>&middot; " + escapeHtml(food.brand) + "</span>" : "") + "</div>";
+    }).join("");
+
+  }).catch(function(err) {
+    resultsEl.innerHTML = "<div class='dropdown-empty'>Could not reach USDA: " + escapeHtml(err.message) + "</div>";
+  });
+
+}
+
+function importAndSelectUsda(fdcId) {
+
+  const resultsEl = document.getElementById("usdaDropdownResults");
+  resultsEl.innerHTML = "<div class='dropdown-empty'>Importing...</div>";
+
+  apiPost("importFood", { fdcId: fdcId }).then(function(json) {
+    if (!json.success) { resultsEl.innerHTML = "<div class='dropdown-empty'>" + escapeHtml(json.error) + "</div>"; return; }
+    localFoodNames.push(json.data.name);
+    selectPending(json.data.name, "Food", json.data.serving_unit || "g");
+  }).catch(function(err) {
+    resultsEl.innerHTML = "<div class='dropdown-empty'>Import failed: " + escapeHtml(err.message) + "</div>";
+  });
+
+}
+
+function selectItem(name, type) {
+
+  closeItemDropdown();
+  document.getElementById("itemSearchInput").value = "";
+
+  if (type === "Food") {
+    apiGet("getFoodDetails", { name: name }).then(function(json) {
+      selectPending(name, "Food", (json.success && json.data.servingUnit) ? json.data.servingUnit : "g", json.success ? json.data : null);
+    }).catch(function() { selectPending(name, "Food", "g"); });
+  } else {
+    selectPending(name, "Recipe", "serving");
+  }
+
+}
+
+function selectPending(name, type, unit, details) {
+
+  pendingItem = { name: name, type: type, unit: unit };
+
+  document.getElementById("pendingItemLabel").textContent = name + (type === "Recipe" ? " (Recipe)" : "");
+  document.getElementById("pendingUnit").value = unit;
+  document.getElementById("pendingAmount").value = "";
+  document.getElementById("pendingMeal").value = smartDefaultMeal();
+
+  const hintEl = document.getElementById("pendingItemHint");
+  if (details && details.servingSize) {
+    let hint = "Native: " + formatAmountForDisplay(details.servingSize) + " " + details.servingUnit;
+    if (details.altServingSize && details.altServingUnit) {
+      hint += " &middot; Also: " + formatAmountForDisplay(details.altServingSize) + " " + details.altServingUnit;
+    }
+    hintEl.innerHTML = hint;
+  } else {
+    hintEl.textContent = "";
+  }
+
+  document.getElementById("pendingItemBox").style.display = "block";
+  document.getElementById("quickCreateForm").style.display = "none";
+
+}
+
+function clearPendingItem() {
+  pendingItem = null;
+  document.getElementById("pendingItemBox").style.display = "none";
+}
+
+function smartDefaultMeal() {
+  const hour = new Date().getHours();
+  if (hour < 10) return "Breakfast";
+  if (hour < 15) return "Lunch";
+  if (hour < 21) return "Dinner";
+  return "Snack";
+}
+
+function startQuickCreate() {
+  closeItemDropdown();
+  document.getElementById("quickCreateForm").style.display = "block";
+  document.getElementById("pendingItemBox").style.display = "none";
+}
+
+function quickCreateFood() {
+
+  const name = document.getElementById("qcName").value.trim();
+  const servingSize = parseFloat(document.getElementById("qcServingSize").value);
+
+  if (!name) { showQuickCreateResult(false, "Food name is required."); return; }
+  if (!servingSize || isNaN(servingSize) || servingSize <= 0) { showQuickCreateResult(false, "Enter a valid serving size."); return; }
+
+  const fields = {
+    name: name, servingSize: servingSize, servingUnit: document.getElementById("qcServingUnit").value,
+    calories: parseFloat(document.getElementById("qcCalories").value) || 0,
+    protein: parseFloat(document.getElementById("qcProtein").value) || 0,
+    fat: parseFloat(document.getElementById("qcFat").value) || 0,
+    carbs: parseFloat(document.getElementById("qcCarbs").value) || 0
+  };
+
+  showQuickCreateResult(true, "Creating...");
+
+  apiPost("addManualFood", { fields: fields }).then(function(json) {
+    if (!json.success) { showQuickCreateResult(false, json.error); return; }
+    localFoodNames.push(json.data.name);
+    document.getElementById("qcName").value = ""; document.getElementById("qcServingSize").value = "";
+    document.getElementById("qcCalories").value = ""; document.getElementById("qcProtein").value = "";
+    document.getElementById("qcFat").value = ""; document.getElementById("qcCarbs").value = "";
+    showQuickCreateResult(true, "");
+    selectPending(json.data.name, "Food", fields.servingUnit);
+  }).catch(function(err) {
+    showQuickCreateResult(false, "Could not reach the backend: " + err.message);
+  });
+
+}
+
+function showQuickCreateResult(ok, message) {
+  const box = document.getElementById("quickCreateResultBox");
+  if (!message) { box.className = "result-box"; box.textContent = ""; return; }
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+// ---- Barcode scanning ----
+let codeReader = null;
+
+function openBarcodeScanner() {
+
+  const overlay = document.createElement("div");
+  overlay.id = "scannerOverlay";
+  overlay.style.cssText = "display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:2000; flex-direction:column; align-items:center; justify-content:center;";
+  overlay.innerHTML =
+    "<video id='scannerVideo' style='width:90%; max-width:400px; border-radius:12px;'></video>" +
+    "<div id='scannerStatus' style='color:#fff; margin-top:14px; font-size:14px;'>Point your camera at a barcode</div>" +
+    "<button class='secondary' style='width:auto; margin-top:16px; padding:10px 24px;' onclick='closeBarcodeScanner()'>Cancel</button>";
+  document.body.appendChild(overlay);
+
+  codeReader = new ZXing.BrowserMultiFormatReader();
+
+  codeReader.decodeFromVideoDevice(null, "scannerVideo", function(result, err) {
+    if (result) {
+      const barcode = result.getText();
+      closeBarcodeScanner();
+      document.getElementById("itemSearchInput").value = barcode;
+      renderItemDropdown(barcode);
+      runUsdaSearchInDropdown(barcode);
+    }
+  }).catch(function(err) {
+    const statusEl = document.getElementById("scannerStatus");
+    if (statusEl) statusEl.textContent = "Camera error: " + err.message;
+  });
+
+}
+
+function closeBarcodeScanner() {
+  if (codeReader) { codeReader.reset(); codeReader = null; }
+  const overlay = document.getElementById("scannerOverlay");
+  if (overlay) overlay.remove();
+}
+
+// ============================================================
+// EXERCISE LOGGING (ported from workout.html)
+// ============================================================
+
+function onTemplateSelected() {
+
+  const templateName = document.getElementById("templateSelect").value;
+  if (!templateName) return;
+
+  document.getElementById("workoutNameInput").value = templateName;
+
+  apiGet("getWorkoutTemplate", { name: templateName }).then(function(json) {
+    if (!json.success) { alert("Could not load template: " + json.error); return; }
+    json.data.exercises.forEach(function(ex) { addExerciseToSession(ex.exercise); });
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+
+}
+
+function onExerciseSearch() {
+
+  const query = document.getElementById("exerciseSearch").value.trim().toLowerCase();
+  const container = document.getElementById("exerciseResults");
+
+  if (query.length === 0) { container.style.display = "none"; return; }
+
+  const matches = localExercises.filter(function(e) { return e.name.toLowerCase().indexOf(query) !== -1; }).slice(0, 8);
+  container.style.display = "block";
+
+  if (matches.length === 0) {
+    container.innerHTML = "<div class='empty-state'>No matches. Try adding it as a new exercise below.</div>";
+    return;
+  }
+
+  container.innerHTML = matches.map(function(e) {
+    return "<div class='result-item' onclick='addExerciseToSession(" + jsStringLiteral(e.name) + ")'>" +
+      "<div class='item-name'>" + escapeHtml(e.name) + "</div></div>";
+  }).join("");
+
+}
+
+function toggleAddExerciseForm() {
+  const form = document.getElementById("addExerciseForm");
+  form.style.display = form.style.display === "none" ? "block" : "none";
+}
+
+function createExercise() {
+
+  const name = document.getElementById("newExerciseName").value.trim();
+  const category = document.getElementById("newExerciseCategory").value.trim();
+  const exerciseType = document.getElementById("newExerciseType").value;
+  if (!name) { alert("Exercise name is required."); return; }
+
+  apiPost("addExercise", { name: name, category: category, exerciseType: exerciseType }).then(function(json) {
+    if (!json.success) { alert("Could not add exercise: " + json.error); return; }
+    localExercises.push({ name: json.data.name, exerciseType: exerciseType, category: category });
+    document.getElementById("newExerciseName").value = ""; document.getElementById("newExerciseCategory").value = "";
+    document.getElementById("addExerciseForm").style.display = "none";
+    document.getElementById("exerciseSearch").value = ""; document.getElementById("exerciseResults").style.display = "none";
+    addExerciseToSession(json.data.name);
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+
+}
+
+function addExerciseToSession(name) {
+
+  if (sessionExercises.some(function(ex) { return ex.name === name; })) {
+    document.getElementById("exerciseSearch").value = ""; document.getElementById("exerciseResults").style.display = "none";
+    return;
+  }
+
+  const info = localExercises.find(function(e) { return e.name === name; });
+  const entry = { name: name, exerciseType: info ? info.exerciseType : "strength", history: null, sets: [] };
+  sessionExercises.push(entry);
+  document.getElementById("exerciseSearch").value = ""; document.getElementById("exerciseResults").style.display = "none";
+
+  renderExerciseSessionList();
+
+  apiGet("getExerciseHistory", { exercise: name, sessionLimit: 1 }).then(function(json) {
+    if (json.success) {
+      entry.history = json.data;
+      if (json.data.exerciseType) entry.exerciseType = json.data.exerciseType;
+      renderExerciseSessionList();
+    }
+  });
+
+}
+
+function removeExerciseFromSession(index) {
+  sessionExercises.splice(index, 1);
+  renderExerciseSessionList();
+}
+
+function addSessionEntry(exIndex) {
+
+  const ex = sessionExercises[exIndex];
+  const notesInput = document.getElementById("notes_" + exIndex);
+  const notes = notesInput.value.trim();
+
+  if (ex.exerciseType === "cardio") {
+
+    const durationInput = document.getElementById("duration_" + exIndex);
+    const distanceInput = document.getElementById("distance_" + exIndex);
+    const duration = parseFloat(durationInput.value);
+    if (!duration || isNaN(duration) || duration <= 0) { alert("Enter a valid duration."); return; }
+
+    ex.sets.push({ setNumber: ex.sets.length + 1, durationMinutes: duration, distance: parseFloat(distanceInput.value) || null, notes: notes });
+    durationInput.value = ""; distanceInput.value = "";
+
+  } else if (ex.exerciseType === "swim") {
+
+    const strokeInput = document.getElementById("stroke_" + exIndex);
+    const lapsInput = document.getElementById("laps_" + exIndex);
+    const durationInput = document.getElementById("duration_" + exIndex);
+    const laps = parseInt(lapsInput.value, 10);
+    if (!laps || isNaN(laps) || laps <= 0) { alert("Enter a valid lap count."); return; }
+
+    ex.sets.push({ setNumber: ex.sets.length + 1, stroke: strokeInput.value, laps: laps, durationMinutes: parseFloat(durationInput.value) || null, notes: notes });
+    lapsInput.value = ""; durationInput.value = "";
+
+  } else {
+
+    const weightInput = document.getElementById("weight_" + exIndex);
+    const unitInput = document.getElementById("unit_" + exIndex);
+    const repsInput = document.getElementById("reps_" + exIndex);
+    const weight = parseFloat(weightInput.value);
+    const reps = parseInt(repsInput.value, 10);
+
+    if (isNaN(weight) && weightInput.value.trim() === "") { alert("Enter a weight (0 is fine for bodyweight)."); return; }
+    if (!reps || isNaN(reps) || reps <= 0) { alert("Enter a valid rep count."); return; }
+
+    ex.sets.push({ setNumber: ex.sets.length + 1, weight: isNaN(weight) ? 0 : weight, unit: unitInput.value.trim() || "lb", reps: reps, notes: notes });
+    weightInput.value = ""; repsInput.value = "";
+
+  }
+
+  notesInput.value = "";
+  renderExerciseSessionList();
+
+}
+
+function removeSetFromSession(exIndex, setIndex) {
+  sessionExercises[exIndex].sets.splice(setIndex, 1);
+  sessionExercises[exIndex].sets.forEach(function(s, i) { s.setNumber = i + 1; });
+  renderExerciseSessionList();
+}
+
+function formatSetLine(exerciseType, s) {
+  if (exerciseType === "cardio") {
+    return formatAmountForDisplay(s.durationMinutes) + " min" + (s.distance ? " &middot; " + formatAmountForDisplay(s.distance) + " mi" : "") + (s.notes ? " — " + escapeHtml(s.notes) : "");
+  }
+  if (exerciseType === "swim") {
+    return escapeHtml(s.stroke || "Swim") + ": " + s.laps + " laps" + (s.durationMinutes ? " &middot; " + formatAmountForDisplay(s.durationMinutes) + " min" : "") + (s.notes ? " — " + escapeHtml(s.notes) : "");
+  }
+  return "Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps + (s.notes ? " — " + escapeHtml(s.notes) : "");
+}
+
+function renderInputRow(ex, i) {
+
+  if (ex.exerciseType === "cardio") {
+    return "<div class='set-input-row'>" +
+      "<input class='set-weight' type='text' id='duration_" + i + "' placeholder='min'>" +
+      "<input class='set-weight' type='text' id='distance_" + i + "' placeholder='mi (opt)'>" +
+      "<input class='set-notes' type='text' id='notes_" + i + "' placeholder='notes (optional)'>" +
+      "<button onclick='addSessionEntry(" + i + ")'>+ Add</button>" +
+    "</div>";
+  }
+
+  if (ex.exerciseType === "swim") {
+    return "<div class='set-input-row'>" +
+      "<select class='set-unit' id='stroke_" + i + "'>" +
+        ["Freestyle","Backstroke","Breaststroke","Butterfly","Kick","Mixed"].map(function(s) { return "<option value='" + s + "'>" + s + "</option>"; }).join("") +
+      "</select>" +
+      "<input class='set-reps' type='text' id='laps_" + i + "' placeholder='laps'>" +
+      "<input class='set-weight' type='text' id='duration_" + i + "' placeholder='min (opt)'>" +
+      "<input class='set-notes' type='text' id='notes_" + i + "' placeholder='notes (optional)'>" +
+      "<button onclick='addSessionEntry(" + i + ")'>+ Add</button>" +
+    "</div>";
+  }
+
+  return "<div class='set-input-row'>" +
+    "<input class='set-weight' type='text' id='weight_" + i + "' placeholder='wt'>" +
+    "<input class='set-unit' type='text' id='unit_" + i + "' placeholder='lb' value='lb'>" +
+    "<input class='set-reps' type='text' id='reps_" + i + "' placeholder='reps'>" +
+    "<input class='set-notes' type='text' id='notes_" + i + "' placeholder='notes (optional)'>" +
+    "<button onclick='addSessionEntry(" + i + ")'>+ Set</button>" +
+  "</div>";
+
+}
+
+function renderExerciseSessionList() {
+
+  const container = document.getElementById("exerciseSessionList");
+
+  if (sessionExercises.length === 0) { container.innerHTML = ""; return; }
+
+  container.innerHTML = sessionExercises.map(function(ex, i) {
+
+    let lastTimeHtml = "<div class='last-time-box'>Loading last time...</div>";
+    if (ex.history) {
+      if (ex.history.sessions.length === 0) {
+        lastTimeHtml = "<div class='last-time-box'>No previous history for this exercise yet.</div>";
+      } else {
+        const session = ex.history.sessions[0];
+        const setsText = session.sets.map(function(s) { return formatSetLine(ex.exerciseType, s); }).join("<br>");
+        lastTimeHtml = "<div class='last-time-box'><div class='lt-title'>Last time (" + session.date + ")</div>" + setsText + "</div>";
+      }
+    }
+
+    const loggedSetsHtml = ex.sets.map(function(s, si) {
+      return "<div class='logged-set-row'>" +
+        "<span>" + formatSetLine(ex.exerciseType, s) + "</span>" +
+        "<button class='remove-set' onclick='removeSetFromSession(" + i + ", " + si + ")'>&times;</button>" +
+      "</div>";
+    }).join("");
+
+    let swimTotalHtml = "";
+    if (ex.exerciseType === "swim" && ex.sets.length > 0) {
+      const totalLaps = ex.sets.reduce(function(sum, s) { return sum + (Number(s.laps) || 0); }, 0);
+      const totalTime = ex.sets.reduce(function(sum, s) { return sum + (Number(s.durationMinutes) || 0); }, 0);
+      swimTotalHtml = "<div class='helper' style='margin-top:6px; margin-bottom:0;'>Total: " + totalLaps + " laps" + (totalTime ? " &middot; " + formatAmountForDisplay(totalTime) + " min" : "") + "</div>";
+    }
+
+    return "<div class='exercise-card'>" +
+      "<h3>" + escapeHtml(ex.name) + "<button class='remove-ex' onclick='removeExerciseFromSession(" + i + ")'>&times;</button></h3>" +
+      lastTimeHtml + loggedSetsHtml + swimTotalHtml +
+      renderInputRow(ex, i) +
+    "</div>";
+
+  }).join("");
+
+}
+
+// ============================================================
+// SUBMIT LOG
+// ============================================================
+
+function submitLog() {
+
+  if (logMode === "food") {
+    submitFoodLog();
+  } else {
+    submitExerciseLog();
+  }
+
+}
+
+function submitFoodLog() {
+
+  if (!pendingItem) { showSubmitResult(false, "Choose a food or recipe first."); return; }
+
+  const amount = parseFloat(document.getElementById("pendingAmount").value);
+  if (!amount || isNaN(amount) || amount <= 0) { showSubmitResult(false, "Enter a valid amount."); return; }
+
+  const entry = {
+    date: document.getElementById("dateInput").value,
+    meal: document.getElementById("pendingMeal").value,
+    type: pendingItem.type,
+    name: pendingItem.name,
+    amount: amount,
+    unit: document.getElementById("pendingUnit").value,
+    notes: document.getElementById("notesInput").value.trim()
+  };
+
+  showSubmitResult(true, "Logging...");
+
+  apiPost("batchLogEntries", { entries: [entry] }).then(function(json) {
+    if (!json.success) { showSubmitResult(false, json.error); return; }
+    const result = json.data[0];
+    if (!result.success) { showSubmitResult(false, result.error); return; }
+
+    showSubmitResult(true, "Logged " + entry.name + ".");
+    clearPendingItem();
+    document.getElementById("notesInput").value = "";
+    apiGet("getRecentFoods", { limit: 15 }).then(function(j) { if (j.success) recentItems = j.data; });
+    loadFoodSection();
+
+  }).catch(function(err) {
+    showSubmitResult(false, "Could not reach the backend: " + err.message);
+  });
+
+}
+
+function submitExerciseLog() {
 
   const date = document.getElementById("dateInput").value;
+  const workoutName = document.getElementById("workoutNameInput").value.trim();
+  const sets = [];
 
+  sessionExercises.forEach(function(ex) {
+    ex.sets.forEach(function(s) {
+      sets.push({ date: date, workoutName: workoutName, exercise: ex.name, setNumber: s.setNumber, weight: s.weight, unit: s.unit, reps: s.reps, notes: s.notes });
+    });
+  });
+
+  if (sets.length === 0) { showSubmitResult(false, "Add at least one set before submitting."); return; }
+
+  showSubmitResult(true, "Logging " + sets.length + " set(s)...");
+
+  apiPost("batchLogWorkoutSets", { sets: sets }).then(function(json) {
+    if (!json.success) { showSubmitResult(false, json.error); return; }
+    const failures = json.data.filter(function(r) { return !r.success; });
+    if (failures.length === 0) {
+      showSubmitResult(true, "Workout logged — " + sets.length + " set(s).");
+      sessionExercises = [];
+      document.getElementById("workoutNameInput").value = "";
+      renderExerciseSessionList();
+      loadWorkoutSection();
+    } else {
+      showSubmitResult(false, failures.length + " set(s) failed to save.");
+    }
+  }).catch(function(err) {
+    showSubmitResult(false, "Could not reach the backend: " + err.message);
+  });
+
+}
+
+function showSubmitResult(ok, message) {
+  const box = document.getElementById("submitResultBox");
+  box.className = "result-box " + (ok ? "ok" : "error");
+  box.textContent = message;
+}
+
+// ============================================================
+// TODAY'S LOG — combined view
+// ============================================================
+
+function loadDay() {
+  loadFoodSection();
+  loadWorkoutSection();
+  loadProgressSection();
+}
+
+function loadFoodSection() {
+
+  const date = document.getElementById("dateInput").value;
   document.getElementById("entriesList").innerHTML = "<div class='empty-state'>Loading...</div>";
   setTotals({ calories: "–", protein: "–", fat: "–", carbs: "–", fiber: "–", netCarbs: "–" });
 
   apiGet("getDailyLogEntries", { date: date }).then(function(json) {
-
-    if (!json.success) {
-      document.getElementById("entriesList").innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
-      return;
-    }
-
+    if (!json.success) { document.getElementById("entriesList").innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>"; return; }
     setTotals(json.data.totals);
     renderGroupedEntries(json.data.entries, date);
-
   }).catch(function(err) {
-    document.getElementById("entriesList").innerHTML =
-      "<div class='empty-state'>Could not reach the backend: " + escapeHtml(err.message) + "</div>";
+    document.getElementById("entriesList").innerHTML = "<div class='empty-state'>Could not reach the backend: " + escapeHtml(err.message) + "</div>";
   });
 
 }
@@ -260,7 +1008,6 @@ function setTotals(totals) {
   document.getElementById("totalFat").textContent = formatAmountForDisplay(totals.fat);
   document.getElementById("totalFiber").textContent = formatAmountForDisplay(totals.fiber);
   document.getElementById("totalNetCarbs").textContent = formatAmountForDisplay(totals.netCarbs);
-
   const pct = calculateMacroPercents(totals);
   document.getElementById("pctProtein").textContent = totals.calories ? pct.protein + "%" : "";
   document.getElementById("pctCarbs").textContent = totals.calories ? pct.carbs + "%" : "";
@@ -270,22 +1017,13 @@ function setTotals(totals) {
 function renderGroupedEntries(entries, viewedDate) {
 
   const container = document.getElementById("entriesList");
-
-  if (entries.length === 0) {
-    container.innerHTML = "<div class='empty-state'>Nothing logged for this day yet. <a href='./log.html'>Log something &rarr;</a></div>";
-    return;
-  }
+  if (entries.length === 0) { container.innerHTML = "<div class='empty-state'>Nothing logged for this day yet.</div>"; return; }
 
   const groups = {};
-  entries.forEach(function(e) {
-    const meal = e.meal || "Other";
-    if (!groups[meal]) groups[meal] = [];
-    groups[meal].push(e);
-  });
+  entries.forEach(function(e) { const meal = e.meal || "Other"; if (!groups[meal]) groups[meal] = []; groups[meal].push(e); });
 
   const mealNames = Object.keys(groups).sort(function(a, b) {
-    const ai = MEAL_ORDER.indexOf(a);
-    const bi = MEAL_ORDER.indexOf(b);
+    const ai = MEAL_ORDER.indexOf(a); const bi = MEAL_ORDER.indexOf(b);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
 
@@ -299,35 +1037,22 @@ function renderGroupedEntries(entries, viewedDate) {
     const entriesHtml = mealEntries.map(function(e) {
       const safeId = jsStringLiteral(e.id);
       return "<div class='entry-row'>" +
-        "<div class='entry-top'>" +
-          "<span class='entry-name'>" + escapeHtml(e.name) + "</span>" +
-          "<span class='entry-actions'>" +
-            "<button onclick='toggleEditEntry(" + safeId + ")'>&#9998;</button>" +
-            "<button class='entry-delete-btn' onclick='deleteEntry(" + safeId + ")'>&times;</button>" +
-          "</span>" +
-        "</div>" +
-        "<div class='entry-meta'>" +
-          formatAmountForDisplay(e.amount) + " " + escapeHtml(e.unit) + " &middot; " +
-          formatAmountForDisplay(e.calories) + " cal &middot; " +
-          "<span class='protein'>" + formatAmountForDisplay(e.protein) + "g P</span> &middot; " +
-          "<span class='carbs'>" + formatAmountForDisplay(e.carbs) + "g C</span> &middot; " +
-          "<span class='fat'>" + formatAmountForDisplay(e.fat) + "g F</span>" +
-        "</div>" +
+        "<div class='entry-top'><span class='entry-name'>" + escapeHtml(e.name) + "</span>" +
+          "<span class='entry-actions'><button onclick='toggleEditEntry(" + safeId + ")'>&#9998;</button>" +
+          "<button class='entry-delete-btn' onclick='deleteEntry(" + safeId + ")'>&times;</button></span></div>" +
+        "<div class='entry-meta'>" + formatAmountForDisplay(e.amount) + " " + escapeHtml(e.unit) + " &middot; " +
+          formatAmountForDisplay(e.calories) + " cal &middot; <span class='protein'>" + formatAmountForDisplay(e.protein) + "g P</span> &middot; " +
+          "<span class='carbs'>" + formatAmountForDisplay(e.carbs) + "g C</span> &middot; <span class='fat'>" + formatAmountForDisplay(e.fat) + "g F</span></div>" +
         (e.notes ? "<div class='entry-meta'>" + escapeHtml(e.notes) + "</div>" : "") +
         "<div class='entry-edit-form' id='editForm_" + e.id + "'>" +
-          "<div class='row-2'>" +
-            "<input type='text' id='editAmount_" + e.id + "' value='" + escapeHtml(e.amount) + "' placeholder='amount'>" +
-            "<select id='editUnit_" + e.id + "'>" +
-              ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","piece","serving"].map(function(u) {
-                const label = (u === "serving") ? "serving(s)" : (u === "piece") ? "piece(s)" : u;
-                return "<option value='" + u + "'" + (e.unit === u ? " selected" : "") + ">" + label + "</option>";
-              }).join("") +
-            "</select>" +
-          "</div>" +
+          "<div class='row-2'><input type='text' id='editAmount_" + e.id + "' value='" + escapeHtml(e.amount) + "' placeholder='amount'>" +
+          "<select id='editUnit_" + e.id + "'>" +
+            ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","piece","serving"].map(function(u) {
+              const label = (u === "serving") ? "serving(s)" : (u === "piece") ? "piece(s)" : u;
+              return "<option value='" + u + "'" + (e.unit === u ? " selected" : "") + ">" + label + "</option>";
+            }).join("") + "</select></div>" +
           "<select id='editMeal_" + e.id + "'>" +
-            ["Breakfast","Lunch","Dinner","Snack"].map(function(m) {
-              return "<option value='" + m + "'" + (e.meal === m ? " selected" : "") + ">" + m + "</option>";
-            }).join("") +
+            ["Breakfast","Lunch","Dinner","Snack"].map(function(m) { return "<option value='" + m + "'" + (e.meal === m ? " selected" : "") + ">" + m + "</option>"; }).join("") +
           "</select>" +
           "<button onclick='saveEntryEdit(" + safeId + ")'>Save</button>" +
           "<button class='secondary' onclick='toggleEditEntry(" + safeId + ")'>Cancel</button>" +
@@ -339,46 +1064,32 @@ function renderGroupedEntries(entries, viewedDate) {
       ? "<button class='repeat-btn' onclick='repeatMealToToday(" + jsStringLiteral(viewedDate) + ", " + jsStringLiteral(meal) + ")'>Repeat this meal to today</button>"
       : "";
 
-    return "<div class='meal-group'>" +
-      "<div class='meal-header'><h3>" + escapeHtml(meal) + "</h3>" +
-      "<span class='meal-cal'>" + Math.round(mealCalories) + " cal</span></div>" +
-      entriesHtml +
-      repeatButton +
-    "</div>";
+    return "<div class='meal-group'><div class='meal-header'><h3>" + escapeHtml(meal) + "</h3>" +
+      "<span class='meal-cal'>" + Math.round(mealCalories) + " cal</span></div>" + entriesHtml + repeatButton + "</div>";
 
   }).join("");
 
 }
 
-function toggleEditEntry(id) {
-  document.getElementById("editForm_" + id).classList.toggle("open");
-}
+function toggleEditEntry(id) { document.getElementById("editForm_" + id).classList.toggle("open"); }
 
 function saveEntryEdit(id) {
-
   const amount = parseFloat(document.getElementById("editAmount_" + id).value);
   const unit = document.getElementById("editUnit_" + id).value;
   const meal = document.getElementById("editMeal_" + id).value;
-
   if (!amount || isNaN(amount) || amount <= 0) { alert("Enter a valid amount."); return; }
-
   apiPost("updateDailyLogEntry", { id: id, amount: amount, unit: unit, meal: meal }).then(function(json) {
     if (!json.success) { alert("Could not update entry: " + json.error); return; }
-    loadFoodTab();
-  }).catch(function(err) {
-    alert("Could not reach the backend: " + err.message);
-  });
-
+    loadFoodSection();
+  }).catch(function(err) { alert("Could not reach the backend: " + err.message); });
 }
 
 function deleteEntry(id) {
   if (!confirm("Remove this entry from your log?")) return;
   apiPost("deleteDailyLogEntry", { id: id }).then(function(json) {
     if (!json.success) { alert("Could not delete entry: " + json.error); return; }
-    loadFoodTab();
-  }).catch(function(err) {
-    alert("Could not reach the backend: " + err.message);
-  });
+    loadFoodSection();
+  }).catch(function(err) { alert("Could not reach the backend: " + err.message); });
 }
 
 function repeatMealToToday(sourceDate, meal) {
@@ -386,25 +1097,16 @@ function repeatMealToToday(sourceDate, meal) {
   apiPost("repeatMeal", { sourceDate: sourceDate, meal: meal, targetDate: todayString() }).then(function(json) {
     if (!json.success) { alert("Could not repeat meal: " + json.error); return; }
     alert("Added " + json.data.count + " item(s) to today.");
-  }).catch(function(err) {
-    alert("Could not reach the backend: " + err.message);
-  });
+  }).catch(function(err) { alert("Could not reach the backend: " + err.message); });
 }
 
-// ============================================================
-// WORKOUTS TAB
-// ============================================================
-
-function loadWorkoutsTab() {
+function loadWorkoutSection() {
 
   const date = document.getElementById("dateInput").value;
   document.getElementById("workoutList").innerHTML = "<div class='empty-state'>Loading...</div>";
 
   apiGet("getWorkoutEntries", { date: date }).then(function(json) {
-    if (!json.success) {
-      document.getElementById("workoutList").innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
-      return;
-    }
+    if (!json.success) { document.getElementById("workoutList").innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>"; return; }
     renderWorkoutEntries(json.data.entries);
   }).catch(function(err) {
     document.getElementById("workoutList").innerHTML = "<div class='empty-state'>Could not reach the backend: " + escapeHtml(err.message) + "</div>";
@@ -415,36 +1117,23 @@ function loadWorkoutsTab() {
 function renderWorkoutEntries(entries) {
 
   const container = document.getElementById("workoutList");
-
-  if (entries.length === 0) {
-    container.innerHTML = "<div class='empty-state'>No workout logged for this day. <a href='./workout.html'>Log a workout &rarr;</a></div>";
-    return;
-  }
+  if (entries.length === 0) { container.innerHTML = "<div class='empty-state'>No workout logged for this day.</div>"; return; }
 
   const groups = {};
-  entries.forEach(function(e) {
-    if (!groups[e.exercise]) groups[e.exercise] = [];
-    groups[e.exercise].push(e);
-  });
+  entries.forEach(function(e) { if (!groups[e.exercise]) groups[e.exercise] = []; groups[e.exercise].push(e); });
 
   const workoutName = entries[0].workoutName;
   let html = workoutName ? "<div class='helper' style='margin-top:0;'>" + escapeHtml(workoutName) + "</div>" : "";
 
   html += Object.keys(groups).map(function(exercise) {
-
     const sets = groups[exercise].sort(function(a, b) { return (a.setNumber || 0) - (b.setNumber || 0); });
-
     const setsHtml = sets.map(function(s) {
-      return "<div class='set-row'>" +
-        "<span>Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps +
-          (s.notes ? " — " + escapeHtml(s.notes) : "") + "</span>" +
-        "<button class='set-delete-btn' onclick='deleteSet(" + jsStringLiteral(s.id) + ")'>&times;</button>" +
-      "</div>";
+      return "<div class='set-row'><span>Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps +
+        (s.notes ? " — " + escapeHtml(s.notes) : "") + "</span>" +
+        "<button class='set-delete-btn' onclick='deleteSet(" + jsStringLiteral(s.id) + ")'>&times;</button></div>";
     }).join("");
-
     return "<div class='exercise-group-row'><h3 style=\"font-family:'Manrope',sans-serif; font-size:14px; font-weight:800; margin:0 0 6px;\">" +
       escapeHtml(exercise) + "</h3>" + setsHtml + "</div>";
-
   }).join("");
 
   container.innerHTML = html;
@@ -455,29 +1144,22 @@ function deleteSet(id) {
   if (!confirm("Remove this set?")) return;
   apiPost("deleteWorkoutSet", { id: id }).then(function(json) {
     if (!json.success) { alert("Could not delete set: " + json.error); return; }
-    loadWorkoutsTab();
-  }).catch(function(err) {
-    alert("Could not reach the backend: " + err.message);
-  });
+    loadWorkoutSection();
+  }).catch(function(err) { alert("Could not reach the backend: " + err.message); });
 }
 
-// ============================================================
-// PROGRESS TAB
-// ============================================================
-
-async function loadProgressTab() {
+async function loadProgressSection() {
 
   const date = document.getElementById("dateInput").value;
   const summaryEl = document.getElementById("progressSummary");
   const achEl = document.getElementById("achievementsForDay");
 
   summaryEl.innerHTML = "<div class='empty-state'>Loading...</div>";
-  achEl.innerHTML = "<div class='empty-state'>Loading...</div>";
+  achEl.innerHTML = "";
 
   try {
 
     const userId = await getCurrentUserId();
-
     const { data: progress } = await sb.from("progress_log").select("*").eq("user_id", userId).eq("log_date", date).maybeSingle();
 
     if (!progress) {
@@ -492,29 +1174,23 @@ async function loadProgressTab() {
       if (progress.sleep_hours) rows.push(["Sleep (hrs)", formatAmountForDisplay(progress.sleep_hours)]);
       rows.push(["Gym", progress.gym ? "Yes" : "No"]);
       rows.push(["Water Goal Met", progress.water_goal_met ? "Yes" : "No"]);
-
       summaryEl.innerHTML = "<div class='progress-summary-grid'>" +
-        rows.map(function(r) { return "<div class='label'>" + r[0] + "</div><div class='value'>" + r[1] + "</div>"; }).join("") +
-        "</div>" +
+        rows.map(function(r) { return "<div class='label'>" + r[0] + "</div><div class='value'>" + r[1] + "</div>"; }).join("") + "</div>" +
         (progress.notes ? "<div class='helper' style='margin-top:10px; margin-bottom:0;'>" + escapeHtml(progress.notes) + "</div>" : "") +
         "<a href='./progress.html' class='helper' style='margin-top:10px; margin-bottom:0; display:block;'>Edit in Progress screen &rarr;</a>";
     }
 
     const { data: achievements } = await sb.from("achievements").select("label, category").eq("user_id", userId).eq("date_earned", date);
 
-    if (!achievements || achievements.length === 0) {
-      achEl.innerHTML = "<div class='empty-state'>Nothing earned this day.</div>";
-    } else {
+    if (achievements && achievements.length > 0) {
       achEl.innerHTML = achievements.map(function(a) {
         return "<div class='ach-earned-row'>&#127942; <span>" + escapeHtml(a.label) +
-          (a.category ? " <span style='color:var(--ink-soft); font-size:12px;'>(" + escapeHtml(a.category) + ")</span>" : "") +
-          "</span></div>";
+          (a.category ? " <span style='color:var(--ink-soft); font-size:12px;'>(" + escapeHtml(a.category) + ")</span>" : "") + "</span></div>";
       }).join("");
     }
 
   } catch (err) {
     summaryEl.innerHTML = "<div class='empty-state'>" + escapeHtml(err.message) + "</div>";
-    achEl.innerHTML = "";
   }
 
 }
