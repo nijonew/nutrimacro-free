@@ -134,6 +134,16 @@ function loadDay() {
 
 }
 
+function formatSetLine(exerciseType, s) {
+  if (exerciseType === "cardio") {
+    return formatAmountForDisplay(s.durationMinutes) + " min" + (s.distance ? " &middot; " + formatAmountForDisplay(s.distance) + " mi" : "") + (s.notes ? " — " + escapeHtml(s.notes) : "");
+  }
+  if (exerciseType === "swim") {
+    return escapeHtml(s.stroke || "Swim") + ": " + s.laps + " laps" + (s.durationMinutes ? " &middot; " + formatAmountForDisplay(s.durationMinutes) + " min" : "") + (s.notes ? " — " + escapeHtml(s.notes) : "");
+  }
+  return "Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps + (s.notes ? " — " + escapeHtml(s.notes) : "");
+}
+
 function renderEntries(entries) {
 
   const container = document.getElementById("entriesList");
@@ -159,15 +169,22 @@ function renderEntries(entries) {
   html += Object.keys(groups).map(function(exercise) {
 
     const sets = groups[exercise].sort(function(a, b) { return (a.setNumber || 0) - (b.setNumber || 0); });
+    const exerciseType = sets[0].exerciseType || "strength";
 
     const setsHtml = sets.map(function(s) {
       return "<div class='set-row'>" +
-        "<span>Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps + "</span>" +
-        (s.notes ? "<span style='color:var(--ink-soft);'>" + escapeHtml(s.notes) + "</span>" : "") +
+        "<span>" + formatSetLine(exerciseType, s) + "</span>" +
       "</div>";
     }).join("");
 
-    return "<div class='exercise-group'><h3>" + escapeHtml(exercise) + "</h3>" + setsHtml + "</div>";
+    let swimTotalHtml = "";
+    if (exerciseType === "swim") {
+      const totalLaps = sets.reduce(function(sum, s) { return sum + (Number(s.laps) || 0); }, 0);
+      const totalTime = sets.reduce(function(sum, s) { return sum + (Number(s.durationMinutes) || 0); }, 0);
+      swimTotalHtml = "<div class='helper' style='margin-top:6px; margin-bottom:0;'>Total: " + totalLaps + " laps" + (totalTime ? " &middot; " + formatAmountForDisplay(totalTime) + " min" : "") + "</div>";
+    }
+
+    return "<div class='exercise-group'><h3>" + escapeHtml(exercise) + "</h3>" + setsHtml + swimTotalHtml + "</div>";
 
   }).join("");
 

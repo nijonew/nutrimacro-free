@@ -131,7 +131,7 @@ async function routeAction(action, params) {
 
     case "getDailyLogEntries": return getDailyLogEntries(params.date);
     case "batchLogEntries": return batchLogEntries(params.entries);
-    case "repeatMeal": return repeatMeal(params.sourceDate, params.meal, params.targetDate);
+    case "repeatMeal": return repeatMeal(params.sourceDate, params.meal, params.targetDate, params.targetMeal);
     case "getRecentFoods": return getRecentFoods(params.limit);
     case "deleteDailyLogEntry": return deleteDailyLogEntry(params.id);
     case "updateDailyLogEntry": return updateDailyLogEntry(params.id, params.amount, params.unit, params.meal, params.notes);
@@ -446,12 +446,14 @@ async function getDailyLogEntries(dateStr) {
 
 }
 
-async function repeatMeal(sourceDate, meal, targetDate) {
+async function repeatMeal(sourceDate, meal, targetDate, targetMeal) {
 
   const userId = await getCurrentUserId();
   const dayData = await getDailyLogEntries(sourceDate);
   const matching = dayData.entries.filter(function(e) { return e.meal === meal; });
   if (matching.length === 0) throw new Error("No entries found for " + meal + " on that date.");
+
+  const mealToUse = targetMeal || meal;
 
   // Re-resolve food/recipe ids by name since getDailyLogEntries only returns names
   const rows = [];
@@ -465,7 +467,7 @@ async function repeatMeal(sourceDate, meal, targetDate) {
       recipeId = data ? data.id : null;
     }
     rows.push({
-      user_id: userId, log_date: targetDate, meal: e.meal, food_id: foodId, recipe_id: recipeId,
+      user_id: userId, log_date: targetDate, meal: mealToUse, food_id: foodId, recipe_id: recipeId,
       amount: e.amount, unit: e.unit, calories: e.calories, protein: e.protein, fat: e.fat,
       carbs: e.carbs, fiber: e.fiber, net_carbs: e.netCarbs, notes: e.notes || null
     });

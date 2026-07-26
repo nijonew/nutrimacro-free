@@ -101,9 +101,17 @@
 
   .meal-group { margin-bottom: 18px; }
   .meal-group:last-child { margin-bottom: 0; }
-  .meal-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .meal-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; gap: 8px; }
   .meal-header h3 { font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 800; margin: 0; }
-  .meal-header .meal-cal { font-size: 12px; color: var(--ink-soft); }
+  .meal-header .meal-cal { font-size: 12px; color: var(--ink-soft); margin-left: auto; }
+  .meal-header-icons { display: flex; gap: 2px; }
+  .meal-header-icons button { width: auto; padding: 2px 5px; font-size: 15px; background: transparent; border: none; color: var(--ink-soft); }
+
+  .repeat-panel { display: none; background: var(--bg); border-radius: 8px; padding: 10px; margin: 8px 0 14px; }
+  .repeat-panel.open { display: block; }
+  .repeat-panel .row-2 { margin-bottom: 8px; }
+  .repeat-panel input, .repeat-panel select { margin-bottom: 8px; }
+  .repeat-panel button { width: auto; padding: 8px 14px; font-size: 13px; margin-right: 6px; }
 
   .entry-row, .exercise-group-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
   .entry-row:last-child, .exercise-group-row:last-child { border-bottom: none; }
@@ -319,6 +327,7 @@ let localFoodNames = [];
 let localRecipeNames = [];
 let recentItems = [];
 let pendingItem = null; // { name, type, unit }
+let lastEntriesByMeal = {};
 
 let localExercises = []; // [{ name, exerciseType, category }]
 let sessionExercises = [];
@@ -1026,12 +1035,12 @@ function renderGroupedEntries(entries, viewedDate) {
   const groups = {};
   entries.forEach(function(e) { const meal = e.meal || "Other"; if (!groups[meal]) groups[meal] = []; groups[meal].push(e); });
 
+  lastEntriesByMeal = groups;
+
   const mealNames = Object.keys(groups).sort(function(a, b) {
     const ai = MEAL_ORDER.indexOf(a); const bi = MEAL_ORDER.indexOf(b);
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
-
-  const isPastDay = viewedDate !== todayString();
 
   container.innerHTML = mealNames.map(function(meal) {
 
@@ -1064,14 +1073,80 @@ function renderGroupedEntries(entries, viewedDate) {
       "</div>";
     }).join("");
 
-    const repeatButton = isPastDay
-      ? "<button class='repeat-btn' onclick='repeatMealToToday(" + jsStringLiteral(viewedDate) + ", " + jsStringLiteral(meal) + ")'>Repeat this meal to today</button>"
-      : "";
+    const safeMeal = jsStringLiteral(meal);
 
-    return "<div class='meal-group'><div class='meal-header'><h3>" + escapeHtml(meal) + "</h3>" +
-      "<span class='meal-cal'>" + Math.round(mealCalories) + " cal</span></div>" + entriesHtml + repeatButton + "</div>";
+    const repeatPanel = "<div class='repeat-panel' id='repeatPanel_" + meal + "'>" +
+      "<div class='row-2'>" +
+        "<div><label style='font-size:11px;'>To date</label><input type='date' id='repeatDate_" + meal + "'></div>" +
+        "<div><label style='font-size:11px;'>As meal</label><select id='repeatMealSelect_" + meal + "'>" +
+          ["Breakfast","Lunch","Dinner","Snack"].map(function(m) { return "<option value='" + m + "'" + (m === meal ? " selected" : "") + ">" + m + "</option>"; }).join("") +
+        "</select></div>" +
+      "</div>" +
+      "<button onclick='submitRepeatMeal(" + safeMeal + ", " + jsStringLiteral(viewedDate) + ")'>Repeat</button>" +
+      "<button class='secondary' onclick='toggleRepeatPanel(" + jsStringLiteral(meal) + ")'>Cancel</button>" +
+    "</div>";
+
+    return "<div class='meal-group'>" +
+      "<div class='meal-header'>" +
+        "<h3>" + escapeHtml(meal) + "</h3>" +
+        "<span class='meal-header-icons'>" +
+          "<button onclick='toggleRepeatPanel(" + jsStringLiteral(meal) + ")' title='Repeat to another day/meal'>&#128257;</button>" +
+          "<button onclick='saveMealAsFavorite(" + jsStringLiteral(meal) + ")' title='Save as Favorite Meal'>&#9733;</button>" +
+        "</span>" +
+        "<span class='meal-cal'>" + Math.round(mealCalories) + " cal</span>" +
+      "</div>" +
+      repeatPanel + entriesHtml +
+    "</div>";
 
   }).join("");
+
+}
+
+function toggleRepeatPanel(meal) {
+  const panel = document.getElementById("repeatPanel_" + meal);
+  const isOpening = !panel.classList.contains("open");
+  panel.classList.toggle("open");
+  if (isOpening) {
+    document.getElementById("repeatDate_" + meal).value = document.getElementById("dateInput").value;
+  }
+}
+
+function submitRepeatMeal(meal, sourceDate) {
+
+  const targetDate = document.getElementById("repeatDate_" + meal).value;
+  const targetMeal = document.getElementById("repeatMealSelect_" + meal).value;
+
+  if (!targetDate) { alert("Choose a date."); return; }
+
+  apiPost("repeatMeal", { sourceDate: sourceDate, meal: meal, targetDate: targetDate, targetMeal: targetMeal }).then(function(json) {
+    if (!json.success) { alert("Could not repeat meal: " + json.error); return; }
+    alert("Added " + json.data.count + " item(s) to " + targetMeal + " on " + targetDate + ".");
+    document.getElementById("repeatPanel_" + meal).classList.remove("open");
+    if (targetDate === document.getElementById("dateInput").value) loadFoodSection();
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+
+}
+
+function saveMealAsFavorite(meal) {
+
+  const entries = lastEntriesByMeal[meal];
+  if (!entries || entries.length === 0) return;
+
+  const name = prompt("Name this favorite meal (e.g. \"Usual " + meal + "\"):", meal);
+  if (!name || !name.trim()) return;
+
+  const items = entries.map(function(e) {
+    return { name: e.name, type: e.type, amount: e.amount, unit: e.unit };
+  });
+
+  apiPost("saveFavoriteMeal", { name: name.trim(), items: items }).then(function(json) {
+    if (!json.success) { alert("Could not save favorite meal: " + json.error); return; }
+    alert("Saved \"" + name.trim() + "\" as a favorite meal.");
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
 
 }
 
@@ -1093,14 +1168,6 @@ function deleteEntry(id) {
   apiPost("deleteDailyLogEntry", { id: id }).then(function(json) {
     if (!json.success) { alert("Could not delete entry: " + json.error); return; }
     loadFoodSection();
-  }).catch(function(err) { alert("Could not reach the backend: " + err.message); });
-}
-
-function repeatMealToToday(sourceDate, meal) {
-  if (!confirm("Repeat " + meal + " from " + sourceDate + " to today?")) return;
-  apiPost("repeatMeal", { sourceDate: sourceDate, meal: meal, targetDate: todayString() }).then(function(json) {
-    if (!json.success) { alert("Could not repeat meal: " + json.error); return; }
-    alert("Added " + json.data.count + " item(s) to today.");
   }).catch(function(err) { alert("Could not reach the backend: " + err.message); });
 }
 

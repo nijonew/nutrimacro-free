@@ -288,10 +288,14 @@ function addSelectedIngredients() {
 
   Promise.all(names.map(function(name) {
     return apiGet("getFoodDetails", { name: name }).then(function(json) {
-      return { name: name, unit: (json.success && json.data.servingUnit) ? json.data.servingUnit : "g" };
-    }).catch(function() { return { name: name, unit: "g" }; });
+      const d = json.success ? json.data : null;
+      return {
+        name: name, unit: (d && d.servingUnit) ? d.servingUnit : "g",
+        unitsHint: d ? buildIngredientUnitsHint(d.servingSize, d.servingUnit, d.altServingSize, d.altServingUnit) : null
+      };
+    }).catch(function() { return { name: name, unit: "g", unitsHint: null }; });
   })).then(function(results) {
-    results.forEach(function(r) { ingredients.push({ name: r.name, amount: "", unit: r.unit }); });
+    results.forEach(function(r) { ingredients.push({ name: r.name, amount: "", unit: r.unit, unitsHint: r.unitsHint }); });
     selectedNames.clear();
     document.getElementById("ingredientSearch").value = "";
     document.getElementById("ingredientResults").style.display = "none";
@@ -299,6 +303,15 @@ function addSelectedIngredients() {
     renderIngredients();
   });
 
+}
+
+function buildIngredientUnitsHint(servingSize, servingUnit, altServingSize, altServingUnit) {
+  if (!servingSize || !servingUnit) return null;
+  let text = "Native: " + formatAmountForDisplay(servingSize) + " " + servingUnit;
+  if (altServingSize && altServingUnit) {
+    text += " &middot; Also: " + formatAmountForDisplay(altServingSize) + " " + altServingUnit;
+  }
+  return text;
 }
 
 function removeIngredient(index) {
@@ -320,7 +333,7 @@ function renderIngredients() {
 
   list.innerHTML = ingredients.map(function(ing, i) {
     return "<div class='ingredient-row'>" +
-      "<span class='ingredient-name'>" + escapeHtml(ing.name) + "</span>" +
+      "<span class='ingredient-name'>" + escapeHtml(ing.name) + (ing.unitsHint ? "<div class='helper' style='margin:2px 0 0; flex-basis:100%;'>" + ing.unitsHint + "</div>" : "") + "</span>" +
       "<input type='text' placeholder='amt' value='" + escapeHtml(ing.amount) + "' onchange='updateIngredientAmount(" + i + ", this.value)'>" +
       "<select onchange='updateIngredientUnit(" + i + ", this.value)'>" +
         ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","piece","serving"].map(function(u) {

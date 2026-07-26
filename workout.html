@@ -12,89 +12,21 @@
 <link rel="stylesheet" href="./style.css">
 <style>
 
-  .exercise-card {
-    background: var(--bg);
-    border-radius: 10px;
-    padding: 14px;
-    margin-bottom: 12px;
-  }
-
-  .exercise-card h3 {
-    font-family: 'Manrope', sans-serif;
-    font-size: 15px;
-    font-weight: 800;
-    margin: 0 0 8px;
-    display: flex;
-    justify-content: space-between;
-  }
-
-  .exercise-card .remove-ex {
-    width: auto;
-    padding: 2px 8px;
-    font-size: 16px;
-    background: transparent;
-    border: none;
-    color: var(--error);
-  }
-
-  .last-time-box {
-    background: var(--surface);
-    border-radius: 8px;
-    padding: 10px;
-    font-size: 12px;
-    color: var(--ink-soft);
-    margin-bottom: 10px;
-  }
-
-  .last-time-box .lt-title {
-    font-weight: 700;
-    color: var(--ink);
-    margin-bottom: 4px;
-  }
-
-  .set-input-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-
-  .set-input-row input {
-    margin-bottom: 0;
-    padding: 8px;
-    font-size: 13px;
-  }
-
-  .set-input-row .set-num { width: 40px; text-align: center; }
+  .exercise-card { background: var(--bg); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .exercise-card h3 { font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 800; margin: 0 0 8px; display: flex; justify-content: space-between; }
+  .exercise-card .remove-ex { width: auto; padding: 2px 8px; font-size: 16px; background: transparent; border: none; color: var(--error); }
+  .last-time-box { background: var(--surface); border-radius: 8px; padding: 10px; font-size: 12px; color: var(--ink-soft); margin-bottom: 10px; }
+  .last-time-box .lt-title { font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+  .set-input-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .set-input-row input, .set-input-row select { margin-bottom: 0; padding: 8px; font-size: 13px; }
   .set-input-row .set-weight { width: 60px; }
   .set-input-row .set-unit { width: 55px; }
   .set-input-row .set-reps { width: 50px; }
   .set-input-row .set-notes { flex: 1; }
-
-  .set-input-row button {
-    width: auto;
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-
-  .logged-set-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--line);
-  }
-
+  .set-input-row button { width: auto; padding: 8px 12px; font-size: 13px; }
+  .logged-set-row { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--line); }
   .logged-set-row:last-child { border-bottom: none; }
-
-  .logged-set-row .remove-set {
-    width: auto;
-    padding: 0 6px;
-    background: transparent;
-    border: none;
-    color: var(--error);
-    font-size: 15px;
-  }
+  .logged-set-row .remove-set { width: auto; padding: 0 6px; background: transparent; border: none; color: var(--error); font-size: 15px; }
 
 </style>
 </head>
@@ -139,6 +71,12 @@
     <div id="addExerciseForm" style="display:none; margin-top:12px;">
       <label for="newExerciseName">Exercise Name</label>
       <input type="text" id="newExerciseName" placeholder="e.g. Incline Dumbbell Press">
+      <label for="newExerciseType">Type</label>
+      <select id="newExerciseType">
+        <option value="strength">Strength (weight &amp; reps)</option>
+        <option value="cardio">Cardio (duration &amp; distance)</option>
+        <option value="swim">Swim (stroke &amp; laps)</option>
+      </select>
       <label for="newExerciseCategory">Category (optional)</label>
       <input type="text" id="newExerciseCategory" placeholder="e.g. Push, Pull, Legs">
       <button onclick="createExercise()">Save & Add to Session</button>
@@ -159,8 +97,8 @@
 <script src="./app.js"></script>
 <script>
 
-let localExerciseNames = [];
-let sessionExercises = []; // { name, history: {sessions:[]}, sets: [{setNumber, weight, unit, reps, notes}] }
+let localExercises = []; // [{ name, exerciseType, category }]
+let sessionExercises = []; // { name, exerciseType, history: {sessions:[]}, sets: [...] }
 
 window.addEventListener("load", async function() {
 
@@ -170,8 +108,8 @@ window.addEventListener("load", async function() {
   document.getElementById("dateInput").value = localDateString();
   registerServiceWorker();
 
-  apiGet("getExerciseNames").then(function(json) {
-    if (json.success) localExerciseNames = json.data;
+  apiGet("getExercisesWithType").then(function(json) {
+    if (json.success) localExercises = json.data;
   });
 
   apiGet("getWorkoutTemplateNames").then(function(json) {
@@ -222,9 +160,7 @@ function onExerciseSearch() {
     return;
   }
 
-  const matches = localExerciseNames
-    .filter(function(name) { return name.toLowerCase().indexOf(query) !== -1; })
-    .slice(0, 8);
+  const matches = localExercises.filter(function(e) { return e.name.toLowerCase().indexOf(query) !== -1; }).slice(0, 8);
 
   container.style.display = "block";
 
@@ -233,9 +169,9 @@ function onExerciseSearch() {
     return;
   }
 
-  container.innerHTML = matches.map(function(name) {
-    return "<div class='result-item' onclick='addExerciseToSession(" + jsStringLiteral(name) + ")'>" +
-      "<div class='item-name'>" + escapeHtml(name) + "</div>" +
+  container.innerHTML = matches.map(function(e) {
+    return "<div class='result-item' onclick='addExerciseToSession(" + jsStringLiteral(e.name) + ")'>" +
+      "<div class='item-name'>" + escapeHtml(e.name) + "</div>" +
     "</div>";
   }).join("");
 
@@ -250,17 +186,18 @@ function createExercise() {
 
   const name = document.getElementById("newExerciseName").value.trim();
   const category = document.getElementById("newExerciseCategory").value.trim();
+  const exerciseType = document.getElementById("newExerciseType").value;
 
   if (!name) { alert("Exercise name is required."); return; }
 
-  apiPost("addExercise", { name: name, category: category }).then(function(json) {
+  apiPost("addExercise", { name: name, category: category, exerciseType: exerciseType }).then(function(json) {
 
     if (!json.success) {
       alert("Could not add exercise: " + json.error);
       return;
     }
 
-    localExerciseNames.push(json.data.name);
+    localExercises.push({ name: json.data.name, exerciseType: exerciseType, category: category });
     document.getElementById("newExerciseName").value = "";
     document.getElementById("newExerciseCategory").value = "";
     document.getElementById("addExerciseForm").style.display = "none";
@@ -283,7 +220,8 @@ function addExerciseToSession(name) {
     return; // already added
   }
 
-  const entry = { name: name, history: null, sets: [] };
+  const info = localExercises.find(function(e) { return e.name === name; });
+  const entry = { name: name, exerciseType: info ? info.exerciseType : "strength", history: null, sets: [] };
   sessionExercises.push(entry);
 
   document.getElementById("exerciseSearch").value = "";
@@ -294,6 +232,7 @@ function addExerciseToSession(name) {
   apiGet("getExerciseHistory", { exercise: name, sessionLimit: 1 }).then(function(json) {
     if (json.success) {
       entry.history = json.data;
+      if (json.data.exerciseType) entry.exerciseType = json.data.exerciseType;
       renderExerciseList();
     }
   });
@@ -305,47 +244,101 @@ function removeExerciseFromSession(index) {
   renderExerciseList();
 }
 
-function addSet(exIndex) {
-
-  const weightInput = document.getElementById("weight_" + exIndex);
-  const unitInput = document.getElementById("unit_" + exIndex);
-  const repsInput = document.getElementById("reps_" + exIndex);
-  const notesInput = document.getElementById("notes_" + exIndex);
-
-  const weight = parseFloat(weightInput.value);
-  const reps = parseInt(repsInput.value, 10);
-
-  if (isNaN(weight) && weightInput.value.trim() !== "0") {
-    // allow 0 explicitly (e.g. bodyweight-only), but require a value
-    if (weightInput.value.trim() === "") { alert("Enter a weight (0 is fine for bodyweight)."); return; }
-  }
-
-  if (!reps || isNaN(reps) || reps <= 0) { alert("Enter a valid rep count."); return; }
+function addSessionEntry(exIndex) {
 
   const ex = sessionExercises[exIndex];
-  const nextSetNumber = ex.sets.length + 1;
+  const notesInput = document.getElementById("notes_" + exIndex);
+  const notes = notesInput.value.trim();
 
-  ex.sets.push({
-    setNumber: nextSetNumber,
-    weight: isNaN(weight) ? 0 : weight,
-    unit: unitInput.value.trim() || "lb",
-    reps: reps,
-    notes: notesInput.value.trim()
-  });
+  if (ex.exerciseType === "cardio") {
 
-  weightInput.value = "";
-  repsInput.value = "";
+    const durationInput = document.getElementById("duration_" + exIndex);
+    const distanceInput = document.getElementById("distance_" + exIndex);
+    const duration = parseFloat(durationInput.value);
+    if (!duration || isNaN(duration) || duration <= 0) { alert("Enter a valid duration."); return; }
+
+    ex.sets.push({ setNumber: ex.sets.length + 1, durationMinutes: duration, distance: parseFloat(distanceInput.value) || null, notes: notes });
+    durationInput.value = ""; distanceInput.value = "";
+
+  } else if (ex.exerciseType === "swim") {
+
+    const strokeInput = document.getElementById("stroke_" + exIndex);
+    const lapsInput = document.getElementById("laps_" + exIndex);
+    const durationInput = document.getElementById("duration_" + exIndex);
+    const laps = parseInt(lapsInput.value, 10);
+    if (!laps || isNaN(laps) || laps <= 0) { alert("Enter a valid lap count."); return; }
+
+    ex.sets.push({ setNumber: ex.sets.length + 1, stroke: strokeInput.value, laps: laps, durationMinutes: parseFloat(durationInput.value) || null, notes: notes });
+    lapsInput.value = ""; durationInput.value = "";
+
+  } else {
+
+    const weightInput = document.getElementById("weight_" + exIndex);
+    const unitInput = document.getElementById("unit_" + exIndex);
+    const repsInput = document.getElementById("reps_" + exIndex);
+    const weight = parseFloat(weightInput.value);
+    const reps = parseInt(repsInput.value, 10);
+
+    if (isNaN(weight) && weightInput.value.trim() === "") { alert("Enter a weight (0 is fine for bodyweight)."); return; }
+    if (!reps || isNaN(reps) || reps <= 0) { alert("Enter a valid rep count."); return; }
+
+    ex.sets.push({ setNumber: ex.sets.length + 1, weight: isNaN(weight) ? 0 : weight, unit: unitInput.value.trim() || "lb", reps: reps, notes: notes });
+    weightInput.value = ""; repsInput.value = "";
+
+  }
+
   notesInput.value = "";
-
   renderExerciseList();
 
 }
 
 function removeSet(exIndex, setIndex) {
   sessionExercises[exIndex].sets.splice(setIndex, 1);
-  // renumber remaining sets
   sessionExercises[exIndex].sets.forEach(function(s, i) { s.setNumber = i + 1; });
   renderExerciseList();
+}
+
+function formatSetLine(exerciseType, s) {
+  if (exerciseType === "cardio") {
+    return formatAmountForDisplay(s.durationMinutes) + " min" + (s.distance ? " &middot; " + formatAmountForDisplay(s.distance) + " mi" : "") + (s.notes ? " — " + escapeHtml(s.notes) : "");
+  }
+  if (exerciseType === "swim") {
+    return escapeHtml(s.stroke || "Swim") + ": " + s.laps + " laps" + (s.durationMinutes ? " &middot; " + formatAmountForDisplay(s.durationMinutes) + " min" : "") + (s.notes ? " — " + escapeHtml(s.notes) : "");
+  }
+  return "Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps + (s.notes ? " — " + escapeHtml(s.notes) : "");
+}
+
+function renderInputRow(ex, i) {
+
+  if (ex.exerciseType === "cardio") {
+    return "<div class='set-input-row'>" +
+      "<input class='set-weight' type='text' id='duration_" + i + "' placeholder='min'>" +
+      "<input class='set-weight' type='text' id='distance_" + i + "' placeholder='mi (opt)'>" +
+      "<input class='set-notes' type='text' id='notes_" + i + "' placeholder='notes (optional)'>" +
+      "<button onclick='addSessionEntry(" + i + ")'>+ Add</button>" +
+    "</div>";
+  }
+
+  if (ex.exerciseType === "swim") {
+    return "<div class='set-input-row'>" +
+      "<select class='set-unit' id='stroke_" + i + "'>" +
+        ["Freestyle","Backstroke","Breaststroke","Butterfly","Kick","Mixed"].map(function(s) { return "<option value='" + s + "'>" + s + "</option>"; }).join("") +
+      "</select>" +
+      "<input class='set-reps' type='text' id='laps_" + i + "' placeholder='laps'>" +
+      "<input class='set-weight' type='text' id='duration_" + i + "' placeholder='min (opt)'>" +
+      "<input class='set-notes' type='text' id='notes_" + i + "' placeholder='notes (optional)'>" +
+      "<button onclick='addSessionEntry(" + i + ")'>+ Add</button>" +
+    "</div>";
+  }
+
+  return "<div class='set-input-row'>" +
+    "<input class='set-weight' type='text' id='weight_" + i + "' placeholder='wt'>" +
+    "<input class='set-unit' type='text' id='unit_" + i + "' placeholder='lb' value='lb'>" +
+    "<input class='set-reps' type='text' id='reps_" + i + "' placeholder='reps'>" +
+    "<input class='set-notes' type='text' id='notes_" + i + "' placeholder='notes (optional)'>" +
+    "<button onclick='addSessionEntry(" + i + ")'>+ Set</button>" +
+  "</div>";
+
 }
 
 function renderExerciseList() {
@@ -370,31 +363,29 @@ function renderExerciseList() {
         lastTimeHtml = "<div class='last-time-box'>No previous history for this exercise yet.</div>";
       } else {
         const session = ex.history.sessions[0];
-        const setsText = session.sets.map(function(s) {
-          return "Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps + (s.notes ? " (" + escapeHtml(s.notes) + ")" : "");
-        }).join("<br>");
+        const setsText = session.sets.map(function(s) { return formatSetLine(ex.exerciseType, s); }).join("<br>");
         lastTimeHtml = "<div class='last-time-box'><div class='lt-title'>Last time (" + session.date + ")</div>" + setsText + "</div>";
       }
     }
 
     const loggedSetsHtml = ex.sets.map(function(s, si) {
       return "<div class='logged-set-row'>" +
-        "<span>Set " + s.setNumber + ": " + formatAmountForDisplay(s.weight) + s.unit + " &times; " + s.reps + (s.notes ? " — " + escapeHtml(s.notes) : "") + "</span>" +
+        "<span>" + formatSetLine(ex.exerciseType, s) + "</span>" +
         "<button class='remove-set' onclick='removeSet(" + i + ", " + si + ")'>&times;</button>" +
       "</div>";
     }).join("");
 
+    let swimTotalHtml = "";
+    if (ex.exerciseType === "swim" && ex.sets.length > 0) {
+      const totalLaps = ex.sets.reduce(function(sum, s) { return sum + (Number(s.laps) || 0); }, 0);
+      const totalTime = ex.sets.reduce(function(sum, s) { return sum + (Number(s.durationMinutes) || 0); }, 0);
+      swimTotalHtml = "<div class='helper' style='margin-top:6px; margin-bottom:0;'>Total: " + totalLaps + " laps" + (totalTime ? " &middot; " + formatAmountForDisplay(totalTime) + " min" : "") + "</div>";
+    }
+
     return "<div class='card exercise-card'>" +
       "<h3>" + escapeHtml(ex.name) + "<button class='remove-ex' onclick='removeExerciseFromSession(" + i + ")'>&times;</button></h3>" +
-      lastTimeHtml +
-      loggedSetsHtml +
-      "<div class='set-input-row'>" +
-        "<input class='set-weight' type='text' id='weight_" + i + "' placeholder='wt'>" +
-        "<input class='set-unit' type='text' id='unit_" + i + "' placeholder='lb' value='lb'>" +
-        "<input class='set-reps' type='text' id='reps_" + i + "' placeholder='reps'>" +
-        "<input class='set-notes' type='text' id='notes_" + i + "' placeholder='notes (optional)'>" +
-        "<button onclick='addSet(" + i + ")'>+ Set</button>" +
-      "</div>" +
+      lastTimeHtml + loggedSetsHtml + swimTotalHtml +
+      renderInputRow(ex, i) +
     "</div>";
 
   }).join("");
@@ -411,14 +402,9 @@ function saveWorkout() {
   sessionExercises.forEach(function(ex) {
     ex.sets.forEach(function(s) {
       sets.push({
-        date: date,
-        workoutName: workoutName,
-        exercise: ex.name,
-        setNumber: s.setNumber,
-        weight: s.weight,
-        unit: s.unit,
-        reps: s.reps,
-        notes: s.notes
+        date: date, workoutName: workoutName, exercise: ex.name, setNumber: s.setNumber,
+        weight: s.weight, unit: s.unit, reps: s.reps, notes: s.notes,
+        durationMinutes: s.durationMinutes, distance: s.distance, stroke: s.stroke, laps: s.laps
       });
     });
   });
