@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>More</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+<style>
+
+  .more-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+    margin: 0 0 8px;
+  }
+
+  .more-link {
+    display: block;
+    padding: 13px 4px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .more-link:last-child { border-bottom: none; }
+  .more-link:active { background: var(--bg); }
+
+  .profile-email {
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin-bottom: 14px;
+  }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Menu</div>
+    <h1>More</h1>
+  </div>
+</header>
+
+<main>
+
+  <div class="card">
+    <div class="more-section-label">Profile</div>
+    <div class="profile-email" id="profileEmail">–</div>
+    <a class="more-link" href="./settings.html">Profile &amp; Account Settings</a>
+    <button class="secondary" style="margin-top:12px;" onclick="signOutFromMore()">Sign Out</button>
+  </div>
+
+  <div class="card">
+    <div class="more-section-label">Progress</div>
+    <a class="more-link" href="./progress.html">Log Progress</a>
+    <a class="more-link" href="./achievements.html">Goals &amp; Achievements</a>
+  </div>
+
+  <div class="card">
+    <div class="more-section-label">Workouts</div>
+    <a class="more-link" href="./workout-history.html">Workout History</a>
+    <a class="more-link" href="./workout-templates.html">Workout Templates</a>
+  </div>
+
+  <div class="card">
+    <div class="more-section-label">Reports</div>
+    <a class="more-link" href="./report.html">Nutrition &amp; Workout Reports</a>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./calc.js"></script>
+<script src="./app.js"></script>
+<script>
+
+window.addEventListener("load", async function() {
+
+  const session = await requireAuth();
+  if (!session) return;
+
+  registerServiceWorker();
+  document.getElementById("profileEmail").textContent = session.user.email || "";
+
+});
+
+function signOutFromMore() {
+  logOut().then(function() {
+    window.location.href = "./index.html";
+  });
+}
+
+</script>
+
+</body>
+</html>
