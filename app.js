@@ -134,6 +134,7 @@ async function routeAction(action, params) {
     case "repeatMeal": return repeatMeal(params.sourceDate, params.meal, params.targetDate, params.targetMeal);
     case "getRecentFoods": return getRecentFoods(params.limit);
     case "deleteDailyLogEntry": return deleteDailyLogEntry(params.id);
+    case "deleteMeal": return deleteMeal(params.date, params.meal);
     case "updateDailyLogEntry": return updateDailyLogEntry(params.id, params.amount, params.unit, params.meal, params.notes);
     case "recalculatePastLogsForFood": return recalculatePastLogsForFood(params.name);
     case "recalculatePastLogsForRecipe": return recalculatePastLogsForRecipe(params.name);
@@ -738,6 +739,13 @@ async function deleteDailyLogEntry(id) {
   return { deleted: true };
 }
 
+async function deleteMeal(date, meal) {
+  const userId = await getCurrentUserId();
+  const { error } = await sb.from("daily_log").delete().eq("user_id", userId).eq("log_date", date).eq("meal", meal);
+  if (error) throw new Error(error.message);
+  return { deleted: true };
+}
+
 async function updateDailyLogEntry(id, amount, unit, meal, notes) {
 
   const userId = await getCurrentUserId();
@@ -937,111 +945,75 @@ async function deleteFavoriteMeal(name) {
   return { deleted: true };
 }
 
+// Bottom navigation bar — fixed to the bottom of every page.
+// Book = Diary, Plus = quick-add sheet, Banana = Foods & Recipes,
+// Ellipsis = opens the same side menu panel built above.
+//
+// Some destinations below are temporary stand-ins for pages that
+// don't exist as dedicated screens yet (a unified Foods & Recipes
+// hub, a standalone Food Scanning entry point) — they'll be
+// repointed once those are built, without needing to touch this
+// function's callers.
 // ============================================================
-// Global navigation menu (hamburger) — unchanged from before
-// ============================================================
 
-function injectNavMenu() {
+function injectBottomNav() {
 
-  const header = document.querySelector("header");
-  if (!header) return;
-
-  const titlesEl = header.querySelector(".titles");
-  if (!titlesEl) return;
-
-  const toggleBtn = document.createElement("button");
-  toggleBtn.className = "nav-toggle-btn";
-  toggleBtn.innerHTML = "&#9776;";
-  toggleBtn.setAttribute("aria-label", "Menu");
-  toggleBtn.onclick = function() { toggleNavPanel(); };
-
-  const rightWrap = document.createElement("div");
-  rightWrap.className = "header-right-wrap";
-
-  Array.from(header.children).forEach(function(child) {
-    if (child !== titlesEl) child.remove();
-  });
-
-  rightWrap.appendChild(toggleBtn);
-  header.appendChild(rightWrap);
-
-  const overlay = document.createElement("div");
-  overlay.className = "nav-overlay";
-  overlay.id = "navOverlay";
-  overlay.addEventListener("click", function(e) {
-    if (e.target === overlay) closeNavPanel();
-  });
-
-  const panel = document.createElement("div");
-  panel.className = "nav-panel";
-
-  const groups = [
-    { section: "Nutrition", items: [
-      { href: "./log.html", label: "Log Food or Recipe" },
-      { href: "./today.html", label: "Daily Log" },
-      { href: "./recipe.html", label: "Build a Recipe" },
-      { href: "./edit-recipe.html", label: "Edit a Recipe" },
-      { href: "./add-food.html", label: "Add Food Manually" },
-      { href: "./bulk-import.html", label: "Bulk Import Foods" },
-      { href: "./edit-food.html", label: "Edit a Food" }
-    ]},
-    { section: "Workouts", items: [
-      { href: "./workout.html", label: "Log Workout" },
-      { href: "./workout-history.html", label: "Workout History" },
-      { href: "./workout-templates.html", label: "Build a Template" }
-    ]},
-    { section: "Progress", items: [
-      { href: "./progress.html", label: "Log Progress" },
-      { href: "./achievements.html", label: "Achievements" }
-    ]},
-    { section: "Account", items: [
-      { href: "./settings.html", label: "Settings" },
-      { href: "./report.html", label: "Reports" },
-      { action: "signOutFromNav()", label: "Sign Out" }
-    ]}
-  ];
+  if (document.getElementById("bottomNav")) return; // avoid double-injection
 
   const currentPath = window.location.pathname.split("/").pop() || "index.html";
 
-  let html = "<div class='nav-panel-header'><span>Menu</span>" +
-    "<button class='nav-close-btn' onclick='closeNavPanel()'>&times;</button></div>";
+  const nav = document.createElement("div");
+  nav.className = "bottom-nav";
+  nav.id = "bottomNav";
 
-  groups.forEach(function(group) {
-    html += "<div class='nav-section-label'>" + group.section + "</div>";
-    group.items.forEach(function(item) {
-      if (item.action) {
-        html += "<a class='nav-link' href='javascript:void(0)' onclick='" + item.action + "'>" + item.label + "</a>";
-      } else {
-        const isActive = item.href.replace("./", "") === currentPath;
-        html += "<a class='nav-link" + (isActive ? " active" : "") + "' href='" + item.href + "'>" + item.label + "</a>";
-      }
-    });
+  const isActive = function(paths) {
+    return paths.indexOf(currentPath) !== -1 ? " active" : "";
+  };
+
+  nav.innerHTML =
+    "<a class='bottom-nav-btn" + isActive(["today.html"]) + "' href='./today.html'>" +
+      "<span class='bnav-icon'>&#128214;</span><span class='bnav-label'>Diary</span>" +
+    "</a>" +
+    "<button class='bottom-nav-btn" + isActive(["log.html", "workout.html", "progress.html"]) + "' onclick='toggleQuickAddSheet()'>" +
+      "<span class='bnav-icon bnav-plus'>&#43;</span><span class='bnav-label'>Add</span>" +
+    "</button>" +
+    "<a class='bottom-nav-btn" + isActive(["foods.html", "recipe.html", "edit-recipe.html", "add-food.html", "edit-food.html", "bulk-import.html"]) + "' href='./foods.html'>" +
+      "<span class='bnav-icon'>&#127820;</span><span class='bnav-label'>Foods</span>" +
+    "</a>" +
+    "<a class='bottom-nav-btn" + isActive(["more.html", "settings.html", "progress.html", "achievements.html", "workout-history.html", "workout-templates.html", "report.html"]) + "' href='./more.html'>" +
+      "<span class='bnav-icon'>&#8230;</span><span class='bnav-label'>More</span>" +
+    "</a>";
+
+  document.body.appendChild(nav);
+
+  const sheet = document.createElement("div");
+  sheet.className = "quick-add-sheet";
+  sheet.id = "quickAddSheet";
+  sheet.innerHTML =
+    "<a class='quick-add-item' href='./log.html'><span class='bnav-icon'>&#127869;</span><span>Food Logging</span></a>" +
+    "<a class='quick-add-item' href='./workout.html'><span class='bnav-icon'>&#127939;</span><span>Exercise Logging</span></a>" +
+    "<a class='quick-add-item' href='./progress.html'><span class='bnav-icon'>&#128202;</span><span>Progress Logging</span></a>" +
+    "<a class='quick-add-item' href='./log.html'><span class='bnav-icon'>&#128247;</span><span>Food Scanning</span></a>";
+
+  const sheetOverlay = document.createElement("div");
+  sheetOverlay.className = "quick-add-overlay";
+  sheetOverlay.id = "quickAddOverlay";
+  sheetOverlay.addEventListener("click", function(e) {
+    if (e.target === sheetOverlay) toggleQuickAddSheet();
   });
+  sheetOverlay.appendChild(sheet);
 
-  panel.innerHTML = html;
-  overlay.appendChild(panel);
-  document.body.appendChild(overlay);
+  document.body.appendChild(sheetOverlay);
 
 }
 
-function toggleNavPanel() {
-  const overlay = document.getElementById("navOverlay");
+function toggleQuickAddSheet() {
+  const overlay = document.getElementById("quickAddOverlay");
   if (overlay) overlay.classList.toggle("open");
 }
 
-function signOutFromNav() {
-  logOut().then(function() {
-    window.location.href = "./index.html";
-  });
-}
-
-function closeNavPanel() {
-  const overlay = document.getElementById("navOverlay");
-  if (overlay) overlay.classList.remove("open");
-}
-
 window.addEventListener("DOMContentLoaded", function() {
-  injectNavMenu();
+  injectBottomNav();
 });
 
 // ============================================================

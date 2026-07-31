@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Foods &amp; Recipes</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+<style>
+
+  .action-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .action-row button {
+    font-size: 12px;
+    padding: 10px 8px;
+  }
+
+  .browse-list {
+    max-height: none;
+    border: none;
+    margin-bottom: 0;
+  }
+
+  .browse-item {
+    padding: 13px 4px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .browse-item:last-child { border-bottom: none; }
+  .browse-item:active { background: var(--bg); }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Nutrition</div>
+    <h1>Foods &amp; Recipes</h1>
+  </div>
+</header>
+
+<main>
+
+  <div class="card">
+    <div class="action-row">
+      <button class="secondary" onclick="window.location.href='./add-food.html'">+ Add Food</button>
+      <button class="secondary" onclick="window.location.href='./recipe.html'">+ Build Recipe</button>
+      <button class="secondary" onclick="window.location.href='./bulk-import.html'">Bulk Import</button>
+    </div>
+  </div>
+
+  <div class="card">
+
+    <div class="segmented">
+      <button class="active" id="tabFoodsBtn" onclick="setTab('foods')">My Foods</button>
+      <button id="tabRecipesBtn" onclick="setTab('recipes')">My Recipes</button>
+    </div>
+
+    <label for="searchInput">Search</label>
+    <input type="text" id="searchInput" placeholder="Filter the list..." oninput="renderList()">
+
+    <div class="browse-list" id="browseList"><div class="empty-state">Loading...</div></div>
+
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./calc.js"></script>
+<script src="./app.js"></script>
+<script>
+
+let currentTab = "foods";
+let foodNames = [];
+let recipeNames = [];
+
+window.addEventListener("load", async function() {
+
+  const session = await requireAuth();
+  if (!session) return;
+
+  registerServiceWorker();
+
+  const [foodsJson, recipesJson] = await Promise.all([
+    apiGet("getFoodNames"),
+    apiGet("getRecipeNames")
+  ]);
+
+  if (foodsJson.success) foodNames = foodsJson.data;
+  if (recipesJson.success) recipeNames = recipesJson.data;
+
+  renderList();
+
+});
+
+function setTab(tab) {
+  currentTab = tab;
+  document.getElementById("tabFoodsBtn").classList.toggle("active", tab === "foods");
+  document.getElementById("tabRecipesBtn").classList.toggle("active", tab === "recipes");
+  document.getElementById("searchInput").value = "";
+  renderList();
+}
+
+function renderList() {
+
+  const container = document.getElementById("browseList");
+  const query = document.getElementById("searchInput").value.trim().toLowerCase();
+  const source = currentTab === "foods" ? foodNames : recipeNames;
+  const editPage = currentTab === "foods" ? "edit-food.html" : "edit-recipe.html";
+
+  const filtered = query ? source.filter(function(name) { return name.toLowerCase().indexOf(query) !== -1; }) : source;
+
+  if (filtered.length === 0) {
+    container.innerHTML = "<div class='empty-state'>" +
+      (source.length === 0
+        ? (currentTab === "foods" ? "No foods yet — add one above." : "No recipes yet — build one above.")
+        : "No matches.") +
+      "</div>";
+    return;
+  }
+
+  container.innerHTML = filtered.map(function(name) {
+    return "<div class='browse-item' onclick=\"window.location.href='./" + editPage + "?name=" + encodeURIComponent(name) + "'\">" +
+      escapeHtml(name) + "</div>";
+  }).join("");
+
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>

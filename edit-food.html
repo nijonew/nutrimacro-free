@@ -145,6 +145,10 @@ window.addEventListener("load", async function() {
     if (json.success) localFoodNames = json.data;
   });
 
+  const params = new URLSearchParams(window.location.search);
+  const presetName = params.get("name");
+  if (presetName) loadFood(presetName);
+
 });
 
 function onSearchInput() {

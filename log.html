@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Log Food</title>
+<title>Food Logging</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#1C2530">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,63 +12,36 @@
 <link rel="stylesheet" href="./style.css">
 <style>
 
-  .cart-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--line);
-    flex-wrap: wrap;
+  .dropdown-wrap { position: relative; }
+  .dropdown-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    max-height: 340px;
+    overflow-y: auto;
+    z-index: 50;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
   }
-
-  .cart-row:last-child { border-bottom: none; }
-
-  .cart-name {
-    flex-basis: 100%;
-    font-size: 14px;
-    font-weight: 600;
+  .dropdown-panel.open { display: block; }
+  .dropdown-group-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--ink-soft); padding: 10px 12px 4px;
   }
+  .dropdown-item { padding: 10px 12px; cursor: pointer; font-size: 14px; border-bottom: 1px solid var(--line); }
+  .dropdown-item:active { background: var(--bg); }
+  .dropdown-item.action-item { color: var(--accent); font-weight: 700; }
+  .dropdown-empty { padding: 10px 12px; font-size: 12px; color: var(--ink-soft); }
 
-  .cart-row input, .cart-row select {
-    margin-bottom: 0;
-    padding: 8px;
-    font-size: 13px;
-  }
+  .pending-item-box { background: var(--bg); border-radius: 10px; padding: 14px; margin-top: 12px; }
+  .pending-item-name { font-weight: 700; font-size: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .pending-item-name button { width: auto; padding: 2px 8px; background: transparent; border: none; color: var(--error); font-size: 16px; }
+  .pending-item-hint { font-size: 12px; color: var(--ink-soft); margin: -4px 0 10px; }
 
-  .cart-row .cart-amount { width: 70px; }
-  .cart-row .cart-unit { width: 78px; }
-  .cart-row .cart-meal { flex: 1; min-width: 110px; }
-
-  .remove-btn {
-    width: auto;
-    padding: 6px 10px;
-    font-size: 16px;
-    background: transparent;
-    border: none;
-    color: var(--error);
-    line-height: 1;
-  }
-
-  .result-item.checkable {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .result-item.checkable input[type="checkbox"] {
-    width: auto;
-    margin: 0;
-  }
-
-  .create-shortcut {
-    display: block;
-    text-align: center;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--accent);
-    text-decoration: none;
-    margin-top: 4px;
-  }
+  #quickCreateForm { display: none; margin-top: 12px; }
 
 </style>
 </head>
@@ -77,59 +50,30 @@
 <header>
   <div class="titles">
     <div class="eyebrow">Nutrition</div>
-    <h1>Log Food or Recipe</h1>
+    <h1>Food Logging</h1>
   </div>
-  <a class="back" href="./today.html">Today &rarr;</a>
 </header>
 
 <main>
 
   <div class="card">
-    <h2>Date</h2>
+    <label for="dateInput">Date</label>
     <input type="date" id="dateInput">
-    <div class="helper" style="margin-bottom:0;">New items default to a meal based on the time of day — each one can still be changed individually below.</div>
-  </div>
-
-  <div class="card" id="favoriteMealsCard" style="display:none;">
-    <h2>Favorite Meals</h2>
-    <div class="result-list" id="favoriteMealsList"></div>
-    <div class="helper" style="margin-bottom:0;">Tap to add every item in that meal to your cart below.</div>
-  </div>
-
-  <div class="card" id="recentCard" style="display:none;">
-    <h2>Recent</h2>
-    <div class="result-list" id="recentList"></div>
-    <div class="helper" style="margin-bottom:0;">Tap an item to add it with the amount you last logged.</div>
   </div>
 
   <div class="card">
-    <h2>What are you logging?</h2>
-    <div class="segmented">
-      <button class="active" id="typeFoodBtn" onclick="setType('Food')">Food</button>
-      <button id="typeRecipeBtn" onclick="setType('Recipe')">Recipe</button>
+
+    <div class="dropdown-wrap">
+      <label for="itemSearchInput">What are you logging?</label>
+      <input type="text" id="itemSearchInput" placeholder="Search or tap to browse..."
+        oninput="onItemSearchInput()" onfocus="onItemSearchFocus()"
+        onkeypress="if(event.key==='Enter'){event.preventDefault();onItemEnterPressed();}">
+      <div class="dropdown-panel" id="itemDropdownPanel"></div>
     </div>
-
-    <label for="itemSearch">Search</label>
-    <input type="text" id="itemSearch" placeholder="Start typing..." oninput="onItemSearch()" onkeypress="if(event.key==='Enter'){event.preventDefault();onItemEnterPressed();}">
-    <div class="result-list" id="itemResults" style="display:none;"></div>
-    <button class="secondary" id="addSelectedBtn" style="display:none; margin-top:10px;" onclick="addSelectedItems()">Add Selected</button>
-
-    <div id="usdaSection" style="display:none;">
-      <div class="helper">USDA database (tap one to import &amp; add)</div>
-      <div class="result-list" id="usdaResults"></div>
-    </div>
-
-    <button class="secondary" id="searchUsdaBtn" style="display:none;" onclick="searchUsda()">
-      Search USDA for &ldquo;<span id="usdaQueryLabel"></span>&rdquo;
-    </button>
 
     <button class="secondary" id="scanBarcodeBtn" style="margin-top:10px;" onclick="openBarcodeScanner()">&#128247; Scan Barcode</button>
 
-    <a class="create-shortcut" id="createShortcut" href="./recipe.html" style="display:none;">+ Create a New Recipe</a>
-
-    <button class="secondary" id="quickCreateToggleBtn" style="margin-top:10px;" onclick="toggleQuickCreate()">+ Quick Create a Food</button>
-
-    <div id="quickCreateForm" style="display:none; margin-top:12px;">
+    <div id="quickCreateForm">
       <label for="qcName">Food Name</label>
       <input type="text" id="qcName" placeholder="e.g. Homemade Granola">
       <div class="row-2">
@@ -140,58 +84,58 @@
         <div>
           <label for="qcServingUnit">Unit</label>
           <select id="qcServingUnit">
-            <option value="g">g</option>
-            <option value="kg">kg</option>
-            <option value="oz">oz</option>
-            <option value="lb">lb</option>
-            <option value="ml">ml</option>
-            <option value="l">l</option>
+            <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option>
+            <option value="lb">lb</option><option value="ml">ml</option><option value="l">l</option>
             <option value="piece">piece(s)</option>
           </select>
         </div>
       </div>
       <div class="row-2">
-        <div>
-          <label for="qcCalories">Calories</label>
-          <input type="text" id="qcCalories" placeholder="0">
-        </div>
-        <div>
-          <label for="qcProtein">Protein (g)</label>
-          <input type="text" id="qcProtein" placeholder="0">
-        </div>
+        <div><label for="qcCalories">Calories</label><input type="text" id="qcCalories" placeholder="0"></div>
+        <div><label for="qcProtein">Protein (g)</label><input type="text" id="qcProtein" placeholder="0"></div>
       </div>
       <div class="row-2">
-        <div>
-          <label for="qcFat">Fat (g)</label>
-          <input type="text" id="qcFat" placeholder="0">
-        </div>
-        <div>
-          <label for="qcCarbs">Carbs (g)</label>
-          <input type="text" id="qcCarbs" placeholder="0">
-        </div>
+        <div><label for="qcFat">Fat (g)</label><input type="text" id="qcFat" placeholder="0"></div>
+        <div><label for="qcCarbs">Carbs (g)</label><input type="text" id="qcCarbs" placeholder="0"></div>
       </div>
-      <button onclick="quickCreateFood()">Create &amp; Add to Cart</button>
+      <button onclick="quickCreateFood()">Create &amp; Select</button>
       <div class="result-box" id="quickCreateResultBox"></div>
     </div>
-  </div>
 
-  <div id="scannerOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:2000; flex-direction:column; align-items:center; justify-content:center;">
-    <video id="scannerVideo" style="width:90%; max-width:400px; border-radius:12px;"></video>
-    <div id="scannerStatus" style="color:#fff; margin-top:14px; font-size:14px;">Point your camera at a barcode</div>
-    <button class="secondary" style="width:auto; margin-top:16px; padding:10px 24px;" onclick="closeBarcodeScanner()">Cancel</button>
-  </div>
+    <div class="pending-item-box" id="pendingItemBox" style="display:none;">
+      <div class="pending-item-name">
+        <span id="pendingItemLabel"></span>
+        <button onclick="clearPendingItem()">&times;</button>
+      </div>
+      <div class="pending-item-hint" id="pendingItemHint"></div>
+      <div class="row-2">
+        <div>
+          <label for="pendingAmount">Amount</label>
+          <input type="text" id="pendingAmount" placeholder="e.g. 6">
+        </div>
+        <div>
+          <label for="pendingUnit">Unit</label>
+          <select id="pendingUnit">
+            <option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option>
+            <option value="lb">lb</option><option value="ml">ml</option><option value="l">l</option>
+            <option value="tsp">tsp</option><option value="tbsp">tbsp</option><option value="cup">cup</option>
+            <option value="fl_oz">fl oz</option><option value="piece">piece(s)</option><option value="serving">serving(s)</option>
+          </select>
+        </div>
+      </div>
+      <label for="pendingMeal">Meal</label>
+      <select id="pendingMeal">
+        <option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option>
+      </select>
+    </div>
 
-  <div class="card" id="cartCard" style="display:none;">
-    <h2>Items to log (<span id="cartCount">0</span>)</h2>
-    <div id="cartList"></div>
-    <button class="secondary" style="margin-top:10px;" onclick="saveCurrentCartAsFavorite()">Save as Favorite Meal</button>
   </div>
 
   <div class="card">
-    <label for="notesInput">Notes (optional, applies to this batch)</label>
+    <label for="notesInput">Notes (optional)</label>
     <textarea id="notesInput" rows="2"></textarea>
-    <button onclick="logMeal()">Log Meal</button>
-    <div class="result-box" id="resultBox"></div>
+    <button onclick="submitLog()">Submit Log</button>
+    <div class="result-box" id="submitResultBox"></div>
   </div>
 
 </main>
@@ -202,184 +146,202 @@
 <script src="./app.js"></script>
 <script>
 
-let codeReader = null;
-
-function openBarcodeScanner() {
-
-  setType("Food"); // barcodes only make sense for packaged foods
-
-  document.getElementById("scannerOverlay").style.display = "flex";
-  document.getElementById("scannerStatus").textContent = "Point your camera at a barcode";
-
-  codeReader = new ZXing.BrowserMultiFormatReader();
-
-  codeReader.decodeFromVideoDevice(null, "scannerVideo", function(result, err) {
-    if (result) {
-      const barcode = result.getText();
-      closeBarcodeScanner();
-      document.getElementById("itemSearch").value = barcode;
-      searchUsda();
-    }
-    // NotFoundException fires continuously while no barcode is in view — ignore it
-  }).catch(function(err) {
-    document.getElementById("scannerStatus").textContent = "Camera error: " + err.message;
-  });
-
-}
-
-function closeBarcodeScanner() {
-  if (codeReader) {
-    codeReader.reset();
-    codeReader = null;
-  }
-  document.getElementById("scannerOverlay").style.display = "none";
-}
-
-let currentType = "Food";
 let localFoodNames = [];
 let localRecipeNames = [];
-let selectedNames = new Set();
-let cart = []; // { name, type, amount, unit, meal }
+let recentItems = [];
+let pendingItem = null; // { name, type, unit }
+let presetMeal = null;
 
 window.addEventListener("load", async function() {
 
   const session = await requireAuth();
   if (!session) return;
 
-  document.getElementById("dateInput").value = localDateString();
   registerServiceWorker();
 
-  apiGet("getFoodNames").then(function(json) {
-    if (json.success) localFoodNames = json.data;
-  });
+  const params = new URLSearchParams(window.location.search);
+  document.getElementById("dateInput").value = params.get("date") || localDateString();
+  presetMeal = params.get("meal") || null;
 
-  apiGet("getRecipeNames").then(function(json) {
-    if (json.success) localRecipeNames = json.data;
-  });
+  apiGet("getFoodNames").then(function(json) { if (json.success) localFoodNames = json.data; });
+  apiGet("getRecipeNames").then(function(json) { if (json.success) localRecipeNames = json.data; });
+  apiGet("getRecentFoods", { limit: 15 }).then(function(json) { if (json.success) recentItems = json.data; });
 
-  apiGet("getRecentFoods", { limit: 8 }).then(function(json) {
-    if (json.success) renderRecents(json.data);
-  });
-
-  apiGet("getFavoriteMealNames").then(function(json) {
-    if (json.success) renderFavoriteMeals(json.data);
+  document.addEventListener("click", function(e) {
+    const wrap = document.querySelector(".dropdown-wrap");
+    if (wrap && !wrap.contains(e.target)) closeItemDropdown();
   });
 
 });
 
-function renderFavoriteMeals(names) {
+function onItemSearchFocus() {
+  renderItemDropdown(document.getElementById("itemSearchInput").value.trim());
+}
 
-  const card = document.getElementById("favoriteMealsCard");
-  const list = document.getElementById("favoriteMealsList");
+function onItemSearchInput() {
+  renderItemDropdown(document.getElementById("itemSearchInput").value.trim());
+}
 
-  if (!names || names.length === 0) {
-    card.style.display = "none";
-    return;
+function onItemEnterPressed() {
+  const query = document.getElementById("itemSearchInput").value.trim();
+  if (query.length >= 2) runUsdaSearchInDropdown(query);
+}
+
+function closeItemDropdown() {
+  document.getElementById("itemDropdownPanel").classList.remove("open");
+}
+
+function filterList(list, query) {
+  if (!query) return list;
+  const q = query.toLowerCase();
+  return list.filter(function(name) { return name.toLowerCase().indexOf(q) !== -1; });
+}
+
+function renderItemDropdown(query) {
+
+  const panel = document.getElementById("itemDropdownPanel");
+  panel.classList.add("open");
+
+  const recentFoodNames = recentItems.filter(function(r) { return r.type === "Food"; }).map(function(r) { return r.name; }).slice(0, 5);
+  const recentRecipeNames = recentItems.filter(function(r) { return r.type === "Recipe"; }).map(function(r) { return r.name; }).slice(0, 3);
+
+  const filteredRecentFoods = filterList(recentFoodNames, query);
+  const filteredRecentRecipes = filterList(recentRecipeNames, query);
+  const filteredMyFoods = filterList(localFoodNames, query).slice(0, 200);
+
+  let html = "";
+
+  if (filteredRecentFoods.length > 0) {
+    html += "<div class='dropdown-group-label'>Recent Foods</div>";
+    html += filteredRecentFoods.map(function(name) {
+      return "<div class='dropdown-item' onclick='selectItem(" + jsStringLiteral(name) + ", \"Food\")'>" + escapeHtml(name) + "</div>";
+    }).join("");
   }
 
-  card.style.display = "block";
+  if (filteredRecentRecipes.length > 0) {
+    html += "<div class='dropdown-group-label'>Recent Recipes</div>";
+    html += filteredRecentRecipes.map(function(name) {
+      return "<div class='dropdown-item' onclick='selectItem(" + jsStringLiteral(name) + ", \"Recipe\")'>" + escapeHtml(name) + "</div>";
+    }).join("");
+  }
 
-  list.innerHTML = names.map(function(name) {
-    return "<div class='result-item' onclick='loadFavoriteMeal(" + jsStringLiteral(name) + ")'>" +
-      "<div class='item-name'>" + escapeHtml(name) + "</div>" +
-    "</div>";
-  }).join("");
+  html += "<div class='dropdown-group-label'>Actions</div>";
+  html += "<div class='dropdown-item action-item' onclick='startQuickCreate()'>+ Create New Food</div>";
+  html += "<div class='dropdown-item action-item' onclick=\"window.location.href='./recipe.html'\">+ Create New Recipe</div>";
+
+  html += "<div class='dropdown-group-label'>My Foods</div>";
+  if (filteredMyFoods.length === 0) {
+    html += "<div class='dropdown-empty'>No matches in your Foods list.</div>";
+  } else {
+    html += filteredMyFoods.map(function(name) {
+      return "<div class='dropdown-item' onclick='selectItem(" + jsStringLiteral(name) + ", \"Food\")'>" + escapeHtml(name) + "</div>";
+    }).join("");
+  }
+
+  if (query.length >= 2) {
+    html += "<div class='dropdown-group-label'>USDA Database</div>";
+    html += "<div class='dropdown-item action-item' id='usdaSearchTrigger' onclick='runUsdaSearchInDropdown(" + jsStringLiteral(query) + ")'>Search USDA for &ldquo;" + escapeHtml(query) + "&rdquo;</div>";
+    html += "<div id='usdaDropdownResults'></div>";
+  }
+
+  panel.innerHTML = html;
 
 }
 
-function loadFavoriteMeal(name) {
-  apiGet("getFavoriteMeal", { name: name }).then(function(json) {
-    if (!json.success) { alert("Could not load favorite meal: " + json.error); return; }
-    json.data.items.forEach(function(item) {
-      addToCart(item.name, item.type, item.unit, item.amount);
-    });
+function runUsdaSearchInDropdown(query) {
+
+  const resultsEl = document.getElementById("usdaDropdownResults");
+  if (!resultsEl) return;
+  resultsEl.innerHTML = "<div class='dropdown-empty'>Searching USDA...</div>";
+
+  apiGet("searchFoods", { query: query }).then(function(json) {
+
+    if (!json.success) { resultsEl.innerHTML = "<div class='dropdown-empty'>" + escapeHtml(json.error) + "</div>"; return; }
+    if (json.data.length === 0) { resultsEl.innerHTML = "<div class='dropdown-empty'>No USDA results found.</div>"; return; }
+
+    resultsEl.innerHTML = json.data.map(function(food) {
+      return "<div class='dropdown-item' onclick='importAndSelectUsda(" + food.fdcId + ")'>" + escapeHtml(food.description) +
+        (food.brand ? " <span style='color:var(--ink-soft); font-size:12px;'>&middot; " + escapeHtml(food.brand) + "</span>" : "") + "</div>";
+    }).join("");
+
   }).catch(function(err) {
-    alert("Could not reach the backend: " + err.message);
+    resultsEl.innerHTML = "<div class='dropdown-empty'>Could not reach USDA: " + escapeHtml(err.message) + "</div>";
   });
+
 }
 
-function saveCurrentCartAsFavorite() {
+function importAndSelectUsda(fdcId) {
 
-  if (cart.length === 0) { alert("Add some items to your cart first."); return; }
+  const resultsEl = document.getElementById("usdaDropdownResults");
+  resultsEl.innerHTML = "<div class='dropdown-empty'>Importing...</div>";
 
-  const name = prompt("Name this favorite meal (e.g. \"Usual Breakfast\"):");
-  if (!name || !name.trim()) return;
+  apiPost("importFood", { fdcId: fdcId }).then(function(json) {
+    if (!json.success) { resultsEl.innerHTML = "<div class='dropdown-empty'>" + escapeHtml(json.error) + "</div>"; return; }
+    localFoodNames.push(json.data.name);
+    selectPending(json.data.name, "Food", json.data.serving_unit || "g");
+  }).catch(function(err) {
+    resultsEl.innerHTML = "<div class='dropdown-empty'>Import failed: " + escapeHtml(err.message) + "</div>";
+  });
 
-  const items = [];
-  for (const item of cart) {
-    const amount = parseAmount(item.amount);
-    if (!amount || isNaN(amount) || amount <= 0) {
-      alert("\"" + item.name + "\" needs a valid amount before this can be saved as a favorite meal.");
-      return;
+}
+
+function selectItem(name, type) {
+
+  closeItemDropdown();
+  document.getElementById("itemSearchInput").value = "";
+
+  if (type === "Food") {
+    apiGet("getFoodDetails", { name: name }).then(function(json) {
+      selectPending(name, "Food", (json.success && json.data.servingUnit) ? json.data.servingUnit : "g", json.success ? json.data : null);
+    }).catch(function() { selectPending(name, "Food", "g"); });
+  } else {
+    selectPending(name, "Recipe", "serving");
+  }
+
+}
+
+function selectPending(name, type, unit, details) {
+
+  pendingItem = { name: name, type: type, unit: unit };
+
+  document.getElementById("pendingItemLabel").textContent = name + (type === "Recipe" ? " (Recipe)" : "");
+  document.getElementById("pendingUnit").value = unit;
+  document.getElementById("pendingAmount").value = "";
+  document.getElementById("pendingMeal").value = presetMeal || smartDefaultMeal();
+
+  const hintEl = document.getElementById("pendingItemHint");
+  if (details && details.servingSize) {
+    let hint = "Native: " + formatAmountForDisplay(details.servingSize) + " " + details.servingUnit;
+    if (details.altServingSize && details.altServingUnit) {
+      hint += " &middot; Also: " + formatAmountForDisplay(details.altServingSize) + " " + details.altServingUnit;
     }
-    items.push({ name: item.name, type: item.type, amount: amount, unit: item.unit });
+    hintEl.innerHTML = hint;
+  } else {
+    hintEl.textContent = "";
   }
 
-  apiPost("saveFavoriteMeal", { name: name.trim(), items: items }).then(function(json) {
-    if (!json.success) { alert("Could not save favorite meal: " + json.error); return; }
-    alert("Saved \"" + name.trim() + "\" as a favorite meal.");
-    apiGet("getFavoriteMealNames").then(function(namesJson) {
-      if (namesJson.success) renderFavoriteMeals(namesJson.data);
-    });
-  }).catch(function(err) {
-    alert("Could not reach the backend: " + err.message);
-  });
-
-}
-
-function renderRecents(recents) {
-
-  const card = document.getElementById("recentCard");
-  const list = document.getElementById("recentList");
-
-  if (!recents || recents.length === 0) {
-    card.style.display = "none";
-    return;
-  }
-
-  card.style.display = "block";
-
-  list.innerHTML = recents.map(function(r, i) {
-    return "<div class='result-item' onclick='addRecentToCart(" + i + ")'>" +
-      "<div class='item-name'>" + escapeHtml(r.name) + "</div>" +
-      "<div class='item-meta'>" + formatAmountForDisplay(r.amount) + " " + escapeHtml(r.unit) +
-      " &middot; " + escapeHtml(r.type) + "</div>" +
-    "</div>";
-  }).join("");
-
-  window._recentItems = recents;
-
-}
-
-function addRecentToCart(index) {
-  const r = window._recentItems[index];
-  if (!r) return;
-  addToCart(r.name, r.type, r.unit, r.amount);
-}
-
-function setType(type) {
-
-  currentType = type;
-
-  document.getElementById("typeFoodBtn").classList.toggle("active", type === "Food");
-  document.getElementById("typeRecipeBtn").classList.toggle("active", type === "Recipe");
-  document.getElementById("createShortcut").style.display = (type === "Food") ? "none" : "block";
-  document.getElementById("quickCreateToggleBtn").style.display = (type === "Food") ? "block" : "none";
+  document.getElementById("pendingItemBox").style.display = "block";
   document.getElementById("quickCreateForm").style.display = "none";
-  document.getElementById("scanBarcodeBtn").style.display = (type === "Food") ? "block" : "none";
-
-  document.getElementById("itemSearch").value = "";
-  document.getElementById("itemResults").style.display = "none";
-  document.getElementById("usdaSection").style.display = "none";
-  document.getElementById("searchUsdaBtn").style.display = "none";
-  selectedNames.clear();
-  updateSelectedCount();
 
 }
 
-function toggleQuickCreate() {
-  const form = document.getElementById("quickCreateForm");
-  form.style.display = (form.style.display === "none") ? "block" : "none";
+function clearPendingItem() {
+  pendingItem = null;
+  document.getElementById("pendingItemBox").style.display = "none";
+}
+
+function smartDefaultMeal() {
+  const hour = new Date().getHours();
+  if (hour < 10) return "Breakfast";
+  if (hour < 15) return "Lunch";
+  if (hour < 21) return "Dinner";
+  return "Snack";
+}
+
+function startQuickCreate() {
+  closeItemDropdown();
+  document.getElementById("quickCreateForm").style.display = "block";
+  document.getElementById("pendingItemBox").style.display = "none";
 }
 
 function quickCreateFood() {
@@ -391,9 +353,7 @@ function quickCreateFood() {
   if (!servingSize || isNaN(servingSize) || servingSize <= 0) { showQuickCreateResult(false, "Enter a valid serving size."); return; }
 
   const fields = {
-    name: name,
-    servingSize: servingSize,
-    servingUnit: document.getElementById("qcServingUnit").value,
+    name: name, servingSize: servingSize, servingUnit: document.getElementById("qcServingUnit").value,
     calories: parseFloat(document.getElementById("qcCalories").value) || 0,
     protein: parseFloat(document.getElementById("qcProtein").value) || 0,
     fat: parseFloat(document.getElementById("qcFat").value) || 0,
@@ -403,21 +363,13 @@ function quickCreateFood() {
   showQuickCreateResult(true, "Creating...");
 
   apiPost("addManualFood", { fields: fields }).then(function(json) {
-
     if (!json.success) { showQuickCreateResult(false, json.error); return; }
-
     localFoodNames.push(json.data.name);
-    addToCart(json.data.name, "Food", fields.servingUnit);
-
-    document.getElementById("qcName").value = "";
-    document.getElementById("qcServingSize").value = "";
-    document.getElementById("qcCalories").value = "";
-    document.getElementById("qcProtein").value = "";
-    document.getElementById("qcFat").value = "";
-    document.getElementById("qcCarbs").value = "";
-    document.getElementById("quickCreateForm").style.display = "none";
+    document.getElementById("qcName").value = ""; document.getElementById("qcServingSize").value = "";
+    document.getElementById("qcCalories").value = ""; document.getElementById("qcProtein").value = "";
+    document.getElementById("qcFat").value = ""; document.getElementById("qcCarbs").value = "";
     showQuickCreateResult(true, "");
-
+    selectPending(json.data.name, "Food", fields.servingUnit);
   }).catch(function(err) {
     showQuickCreateResult(false, "Could not reach the backend: " + err.message);
   });
@@ -431,327 +383,84 @@ function showQuickCreateResult(ok, message) {
   box.textContent = message;
 }
 
-function currentNameList() {
-  return currentType === "Food" ? localFoodNames : localRecipeNames;
-}
+// ---- Barcode scanning ----
+let codeReader = null;
 
-function onItemSearch() {
+function openBarcodeScanner() {
 
-  const query = document.getElementById("itemSearch").value.trim().toLowerCase();
-  const resultsBox = document.getElementById("itemResults");
+  const overlay = document.createElement("div");
+  overlay.id = "scannerOverlay";
+  overlay.style.cssText = "display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:2000; flex-direction:column; align-items:center; justify-content:center;";
+  overlay.innerHTML =
+    "<video id='scannerVideo' style='width:90%; max-width:400px; border-radius:12px;'></video>" +
+    "<div id='scannerStatus' style='color:#fff; margin-top:14px; font-size:14px;'>Point your camera at a barcode</div>" +
+    "<button class='secondary' style='width:auto; margin-top:16px; padding:10px 24px;' onclick='closeBarcodeScanner()'>Cancel</button>";
+  document.body.appendChild(overlay);
 
-  selectedNames.clear();
-  updateSelectedCount();
+  codeReader = new ZXing.BrowserMultiFormatReader();
 
-  document.getElementById("usdaSection").style.display = "none";
-  document.getElementById("usdaResults").innerHTML = "";
-
-  if (query.length === 0) {
-    resultsBox.style.display = "none";
-    document.getElementById("searchUsdaBtn").style.display = "none";
-    return;
-  }
-
-  const matches = currentNameList()
-    .filter(function(name) { return name.toLowerCase().indexOf(query) !== -1; })
-    .slice(0, 8);
-
-  resultsBox.style.display = "block";
-
-  if (matches.length === 0) {
-    resultsBox.innerHTML = "<div class='empty-state'>No matches in your " + (currentType === "Food" ? "Foods" : "Recipes") + " list.</div>";
-  } else {
-    resultsBox.innerHTML = matches.map(function(name) {
-      const safeId = "chk_" + btoa(unescape(encodeURIComponent(name))).replace(/[^a-zA-Z0-9]/g, "");
-      return "<div class='result-item checkable'>" +
-        "<input type='checkbox' id='" + safeId + "' onchange='toggleSelected(" + jsStringLiteral(name) + ", this.checked)'>" +
-        "<label for='" + safeId + "' class='item-name' style='flex:1; margin:0; font-weight:600; color:var(--ink);'>" + escapeHtml(name) + "</label>" +
-      "</div>";
-    }).join("");
-  }
-
-  document.getElementById("usdaQueryLabel").textContent = query;
-  document.getElementById("searchUsdaBtn").style.display = (currentType === "Food" && query.length >= 2) ? "block" : "none";
-
-}
-
-function onItemEnterPressed() {
-  const query = document.getElementById("itemSearch").value.trim();
-  if (currentType === "Food" && query.length >= 2 && selectedNames.size === 0) {
-    searchUsda();
-  }
-}
-
-function toggleSelected(name, checked) {
-  if (checked) selectedNames.add(name); else selectedNames.delete(name);
-  updateSelectedCount();
-}
-
-function updateSelectedCount() {
-  const count = selectedNames.size;
-  const btn = document.getElementById("addSelectedBtn");
-  if (count === 0) {
-    btn.style.display = "none";
-    const query = document.getElementById("itemSearch").value.trim();
-    document.getElementById("searchUsdaBtn").style.display = (currentType === "Food" && query.length >= 2) ? "block" : "none";
-  } else {
-    btn.style.display = "block";
-    btn.textContent = (count === 1) ? "Add to Log" : "Add All (" + count + ") to Log";
-    document.getElementById("searchUsdaBtn").style.display = "none";
-    document.getElementById("usdaSection").style.display = "none";
-  }
-}
-
-function searchUsda() {
-
-  const query = document.getElementById("itemSearch").value.trim();
-  const usdaSection = document.getElementById("usdaSection");
-  const usdaResults = document.getElementById("usdaResults");
-
-  usdaSection.style.display = "block";
-  usdaResults.innerHTML = "<div class='empty-state'>Searching USDA...</div>";
-
-  apiGet("searchFoods", { query: query }).then(function(json) {
-
-    if (!json.success) {
-      usdaResults.innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
-      return;
+  codeReader.decodeFromVideoDevice(null, "scannerVideo", function(result, err) {
+    if (result) {
+      const barcode = result.getText();
+      closeBarcodeScanner();
+      document.getElementById("itemSearchInput").value = barcode;
+      renderItemDropdown(barcode);
+      runUsdaSearchInDropdown(barcode);
     }
+  }).catch(function(err) {
+    const statusEl = document.getElementById("scannerStatus");
+    if (statusEl) statusEl.textContent = "Camera error: " + err.message;
+  });
 
-    if (json.data.length === 0) {
-      usdaResults.innerHTML = "<div class='empty-state'>No USDA results found.</div>";
-      return;
-    }
+}
 
-    usdaResults.innerHTML = json.data.map(function(food) {
-      return "<div class='result-item' onclick='importFromUsda(" + food.fdcId + ")'>" +
-        "<div class='item-name'>" + escapeHtml(food.description) + "</div>" +
-        "<div class='item-meta'>" + escapeHtml(food.dataType) +
-        (food.brand ? " &middot; " + escapeHtml(food.brand) : "") + "</div>" +
-        "</div>";
-    }).join("");
+function closeBarcodeScanner() {
+  if (codeReader) { codeReader.reset(); codeReader = null; }
+  const overlay = document.getElementById("scannerOverlay");
+  if (overlay) overlay.remove();
+}
+
+// ============================================================
+// SUBMIT
+// ============================================================
+
+function submitLog() {
+
+  if (!pendingItem) { showSubmitResult(false, "Choose a food or recipe first."); return; }
+
+  const amount = parseFloat(document.getElementById("pendingAmount").value);
+  if (!amount || isNaN(amount) || amount <= 0) { showSubmitResult(false, "Enter a valid amount."); return; }
+
+  const entry = {
+    date: document.getElementById("dateInput").value,
+    meal: document.getElementById("pendingMeal").value,
+    type: pendingItem.type,
+    name: pendingItem.name,
+    amount: amount,
+    unit: document.getElementById("pendingUnit").value,
+    notes: document.getElementById("notesInput").value.trim()
+  };
+
+  showSubmitResult(true, "Logging...");
+
+  apiPost("batchLogEntries", { entries: [entry] }).then(function(json) {
+    if (!json.success) { showSubmitResult(false, json.error); return; }
+    const result = json.data[0];
+    if (!result.success) { showSubmitResult(false, result.error); return; }
+
+    showSubmitResult(true, "Logged " + entry.name + ".");
+    clearPendingItem();
+    document.getElementById("notesInput").value = "";
+    apiGet("getRecentFoods", { limit: 15 }).then(function(j) { if (j.success) recentItems = j.data; });
 
   }).catch(function(err) {
-    usdaResults.innerHTML = "<div class='empty-state'>Could not reach USDA: " + escapeHtml(err.message) + "</div>";
+    showSubmitResult(false, "Could not reach the backend: " + err.message);
   });
 
 }
 
-function importFromUsda(fdcId) {
-
-  const usdaResults = document.getElementById("usdaResults");
-  usdaResults.innerHTML = "<div class='empty-state'>Importing...</div>";
-
-  apiPost("importFood", { fdcId: fdcId }).then(function(json) {
-
-    if (!json.success) {
-      usdaResults.innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>";
-      return;
-    }
-
-    localFoodNames.push(json.data.name);
-    addToCart(json.data.name, "Food", json.data.serving_unit || "g");
-
-    document.getElementById("usdaSection").style.display = "none";
-    document.getElementById("itemSearch").value = "";
-    onItemSearch();
-
-  }).catch(function(err) {
-    usdaResults.innerHTML = "<div class='empty-state'>Import failed: " + escapeHtml(err.message) + "</div>";
-  });
-
-}
-
-function addSelectedItems() {
-
-  const names = Array.from(selectedNames);
-  const type = currentType;
-
-  Promise.all(names.map(function(name) {
-    if (type !== "Food") return Promise.resolve({ name: name, unit: "serving", unitsHint: null });
-    return apiGet("getFoodDetails", { name: name }).then(function(json) {
-      if (!json.success) return { name: name, unit: "g", unitsHint: null };
-      const d = json.data;
-      return {
-        name: name, unit: d.servingUnit || "g",
-        unitsHint: buildUnitsHint(d.servingSize, d.servingUnit, d.altServingSize, d.altServingUnit)
-      };
-    }).catch(function() {
-      return { name: name, unit: "g", unitsHint: null };
-    });
-  })).then(function(results) {
-
-    results.forEach(function(r) { addToCart(r.name, type, r.unit, undefined, r.unitsHint); });
-
-    selectedNames.clear();
-    document.getElementById("itemSearch").value = "";
-    document.getElementById("itemResults").style.display = "none";
-    updateSelectedCount();
-
-  });
-
-}
-
-function buildUnitsHint(servingSize, servingUnit, altServingSize, altServingUnit) {
-  if (!servingSize || !servingUnit) return null;
-  let text = "Native: " + formatAmountForDisplay(servingSize) + " " + servingUnit;
-  if (altServingSize && altServingUnit) {
-    text += " &middot; Also: " + formatAmountForDisplay(altServingSize) + " " + altServingUnit;
-  }
-  return text;
-}
-
-function smartDefaultMeal() {
-  const hour = new Date().getHours();
-  if (hour < 10) return "Breakfast";
-  if (hour < 15) return "Lunch";
-  if (hour < 21) return "Dinner";
-  return "Snack";
-}
-
-function addToCart(name, type, unit, amount, unitsHint) {
-  cart.push({ name: name, type: type, amount: (amount !== undefined && amount !== null) ? String(amount) : "", unit: unit, meal: smartDefaultMeal(), unitsHint: unitsHint || null });
-  renderCart();
-}
-
-function removeFromCart(index) {
-  cart.splice(index, 1);
-  renderCart();
-}
-
-function updateCartAmount(index, value) {
-  cart[index].amount = value;
-}
-
-function updateCartUnit(index, value) {
-  cart[index].unit = value;
-}
-
-function updateCartMeal(index, value) {
-  cart[index].meal = value;
-}
-
-function renderCart() {
-
-  const card = document.getElementById("cartCard");
-  const list = document.getElementById("cartList");
-
-  document.getElementById("cartCount").textContent = cart.length;
-
-  if (cart.length === 0) {
-    card.style.display = "none";
-    return;
-  }
-
-  card.style.display = "block";
-
-  const units = ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","piece","serving"];
-  const meals = ["Breakfast","Lunch","Dinner","Snack"];
-
-  list.innerHTML = cart.map(function(item, i) {
-    return "<div class='cart-row'>" +
-      "<span class='cart-name'>" + escapeHtml(item.name) + " <span style='color:var(--ink-soft); font-weight:400;'>(" + item.type + ")</span></span>" +
-      "<input class='cart-amount' type='text' placeholder='amt' value='" + escapeHtml(item.amount) + "' " +
-        "onchange='updateCartAmount(" + i + ", this.value)'>" +
-      "<select class='cart-unit' onchange='updateCartUnit(" + i + ", this.value)'>" +
-        units.map(function(u) {
-          const label = (u === "serving") ? "serving(s)" : (u === "piece") ? "piece(s)" : u;
-          return "<option value='" + u + "'" + (item.unit === u ? " selected" : "") + ">" + label + "</option>";
-        }).join("") +
-      "</select>" +
-      "<select class='cart-meal' onchange='updateCartMeal(" + i + ", this.value)'>" +
-        meals.map(function(m) {
-          return "<option value='" + m + "'" + (item.meal === m ? " selected" : "") + ">" + m + "</option>";
-        }).join("") +
-      "</select>" +
-      "<button class='remove-btn' onclick='removeFromCart(" + i + ")'>&times;</button>" +
-    "</div>";
-  }).join("");
-
-}
-
-function parseAmount(str) {
-
-  str = String(str).trim();
-
-  const mixedMatch = str.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-  if (mixedMatch) {
-    const whole = parseInt(mixedMatch[1], 10);
-    const num = parseInt(mixedMatch[2], 10);
-    const denom = parseInt(mixedMatch[3], 10);
-    if (denom === 0) return NaN;
-    return whole + (num / denom);
-  }
-
-  const fractionMatch = str.match(/^(\d+)\/(\d+)$/);
-  if (fractionMatch) {
-    const num = parseInt(fractionMatch[1], 10);
-    const denom = parseInt(fractionMatch[2], 10);
-    if (denom === 0) return NaN;
-    return num / denom;
-  }
-
-  return parseFloat(str);
-
-}
-
-function logMeal() {
-
-  const date = document.getElementById("dateInput").value;
-  const notes = document.getElementById("notesInput").value.trim();
-
-  if (cart.length === 0) {
-    showResult(false, "Add at least one item before logging.");
-    return;
-  }
-
-  const entries = [];
-
-  for (let i = 0; i < cart.length; i++) {
-
-    const amount = parseAmount(cart[i].amount);
-
-    if (!amount || isNaN(amount) || amount <= 0) {
-      showResult(false, "Enter a valid amount for \"" + cart[i].name + "\".");
-      return;
-    }
-
-    entries.push({
-      date: date, meal: cart[i].meal, type: cart[i].type, name: cart[i].name,
-      amount: amount, unit: cart[i].unit, notes: notes
-    });
-
-  }
-
-  showResult(true, "Logging " + entries.length + " item(s)...");
-
-  apiPost("batchLogEntries", { entries: entries }).then(function(json) {
-
-    if (!json.success) {
-      showResult(false, json.error);
-      return;
-    }
-
-    const failures = json.data.filter(function(r) { return !r.success; });
-
-    if (failures.length === 0) {
-      showResult(true, "Logged " + entries.length + " item(s).");
-      cart = [];
-      renderCart();
-      document.getElementById("notesInput").value = "";
-    } else {
-      showResult(false, failures.length + " item(s) failed. Check the console for details.");
-      console.log(failures);
-    }
-
-  }).catch(function(err) {
-    showResult(false, "Could not reach the backend: " + err.message);
-  });
-
-}
-
-function showResult(ok, message) {
-  const box = document.getElementById("resultBox");
+function showSubmitResult(ok, message) {
+  const box = document.getElementById("submitResultBox");
   box.className = "result-box " + (ok ? "ok" : "error");
   box.textContent = message;
 }

@@ -116,15 +116,8 @@
     </select>
 
     <div id="weightTargetFields" style="display:none;">
-      <label for="weightFormulaSelect">How should the target be calculated?</label>
-      <select id="weightFormulaSelect" onchange="onWeightFormulaChange()">
-        <option value="offset_from_start">Lbs lost from Starting Weight</option>
-        <option value="percent_of_start_lost">% of Starting Weight lost</option>
-        <option value="bmi">Target BMI (uses Height)</option>
-        <option value="absolute">A fixed number (e.g. a historical fact)</option>
-      </select>
-      <label for="targetWeightInput" id="targetWeightLabel">Lbs to lose</label>
-      <input type="text" id="targetWeightInput" placeholder="e.g. 10">
+      <label for="targetWeightInput">Target weight</label>
+      <input type="text" id="targetWeightInput" placeholder="e.g. 250">
     </div>
 
     <div id="metricFieldBlock" style="display:none;">
@@ -205,7 +198,6 @@ function onTriggerTypeChange() {
   const type = document.getElementById("triggerTypeSelect").value;
 
   document.getElementById("weightTargetFields").style.display = (type === "weight_target") ? "block" : "none";
-  if (type === "weight_target") onWeightFormulaChange();
 
   const needsMetricField = ["metric_trigger", "metric_sum", "metric_average", "metric_count"].includes(type);
   document.getElementById("metricFieldBlock").style.display = needsMetricField ? "block" : "none";
@@ -215,19 +207,6 @@ function onTriggerTypeChange() {
   document.getElementById("requiredCountBlock").style.display = (type === "metric_count") ? "block" : "none";
 
   if (needsMetricField) onMetricFieldChange();
-
-}
-
-function onWeightFormulaChange() {
-
-  const formula = document.getElementById("weightFormulaSelect").value;
-  const label = document.getElementById("targetWeightLabel");
-  const input = document.getElementById("targetWeightInput");
-
-  if (formula === "offset_from_start") { label.textContent = "Lbs to lose"; input.placeholder = "e.g. 10"; }
-  else if (formula === "percent_of_start_lost") { label.textContent = "Percent to lose"; input.placeholder = "e.g. 10"; }
-  else if (formula === "bmi") { label.textContent = "Target BMI"; input.placeholder = "e.g. 25"; }
-  else { label.textContent = "Target weight"; input.placeholder = "e.g. 250"; }
 
 }
 
@@ -265,9 +244,8 @@ async function saveAchievement() {
 
   if (triggerType === "weight_target") {
     const target = parseFloat(document.getElementById("targetWeightInput").value);
-    if (!target || isNaN(target)) { showSaveResult(false, "Enter a valid value."); return; }
+    if (!target || isNaN(target)) { showSaveResult(false, "Enter a valid target weight."); return; }
     record.trigger_field = "weight"; record.trigger_operator = "<="; record.trigger_value = target;
-    record.weight_formula = document.getElementById("weightFormulaSelect").value;
   }
 
   if (["metric_trigger", "metric_sum", "metric_average", "metric_count"].includes(triggerType)) {
@@ -333,36 +311,11 @@ function compareTrigger(value, operator, target) {
   }
 }
 
-function resolveWeightTarget(achievement, settings) {
-
-  const formula = achievement.weight_formula || "absolute";
-
-  if (formula === "absolute") return achievement.trigger_value;
-
-  if (formula === "offset_from_start") {
-    if (!settings.starting_weight) return null;
-    return settings.starting_weight - achievement.trigger_value;
-  }
-
-  if (formula === "percent_of_start_lost") {
-    if (!settings.starting_weight) return null;
-    return settings.starting_weight * (1 - achievement.trigger_value / 100);
-  }
-
-  if (formula === "bmi") {
-    if (!settings.height) return null;
-    return round2(achievement.trigger_value * settings.height * settings.height / 703);
-  }
-
-  return achievement.trigger_value;
-
-}
-
 function dayStringsBack(count) {
   const dates = [];
   const cursor = new Date();
   for (let i = 0; i < count; i++) {
-    dates.push(localDateString(cursor));
+    dates.push(cursor.toISOString().slice(0, 10));
     cursor.setDate(cursor.getDate() - 1);
   }
   return dates;
@@ -384,21 +337,14 @@ async function loadAchievements() {
 
     if (error) throw new Error(error.message);
 
-    const { data: settings } = await sb.from("user_settings").select("current_weight, starting_weight, height").eq("user_id", userId).maybeSingle();
+    const { data: settings } = await sb.from("user_settings").select("current_weight").eq("user_id", userId).maybeSingle();
     const currentWeight = settings ? settings.current_weight : null;
-    lastSettings = settings || {};
 
-    // weight_target — resolve the actual target dynamically (offset from
-    // Starting Weight, % of Starting Weight lost, or BMI using Height),
-    // then check against Settings' current weight. 'absolute' goals (fixed
-    // historical facts) use their stored number directly.
+    // weight_target — check against Settings' current weight
     if (currentWeight) {
       for (const a of achievements) {
-        if (a.trigger_type !== "weight_target" || a.date_earned) continue;
-        const target = resolveWeightTarget(a, settings);
-        if (target === null) continue; // missing Starting Weight/Height in Settings
-        if (currentWeight <= target) {
-          const today = localDateString();
+        if (a.trigger_type === "weight_target" && !a.date_earned && currentWeight <= a.trigger_value) {
+          const today = new Date().toISOString().slice(0, 10);
           await sb.from("achievements").update({ date_earned: today }).eq("id", a.id);
           a.date_earned = today;
         }
@@ -445,7 +391,7 @@ async function loadAchievements() {
           const metricValue = (a.trigger_type === "metric_sum") ? sum : (values.length > 0 ? sum / a.period_days : 0);
 
           if (compareTrigger(metricValue, a.trigger_operator, a.trigger_value)) {
-            const today = localDateString();
+            const today = new Date().toISOString().slice(0, 10);
             await sb.from("achievements").update({ date_earned: today }).eq("id", a.id);
             a.date_earned = today;
           }
@@ -462,7 +408,7 @@ async function loadAchievements() {
           }).length;
 
           if (qualifyingDays >= a.required_count) {
-            const today = localDateString();
+            const today = new Date().toISOString().slice(0, 10);
             await sb.from("achievements").update({ date_earned: today }).eq("id", a.id);
             a.date_earned = today;
           }
@@ -505,18 +451,9 @@ function filteredAchievements() {
   return allAchievements.filter(function(a) { return a.category === activeCategory; });
 }
 
-let lastSettings = {};
-
 function describeTrigger(a) {
   if (a.trigger_type === "manual") return "Manual";
-
-  if (a.trigger_type === "weight_target") {
-    const formula = a.weight_formula || "absolute";
-    if (formula === "offset_from_start") return "Lose " + a.trigger_value + " lbs from start";
-    if (formula === "percent_of_start_lost") return a.trigger_value + "% of starting weight lost";
-    if (formula === "bmi") return "Target BMI " + a.trigger_value;
-    return "Weight &le; " + a.trigger_value;
-  }
+  if (a.trigger_type === "weight_target") return "Weight &le; " + a.trigger_value;
 
   const fieldLabel = METRIC_LABELS[a.trigger_field] || a.trigger_field;
   const isBoolean = BOOLEAN_FIELDS.includes(a.trigger_field);
@@ -556,16 +493,6 @@ function renderRow(a) {
 
   if (a.date_earned) {
     rightSide = "<span class='ach-earned-badge'>&#10003; " + a.date_earned + "</span>";
-  } else if (a.trigger_type === "weight_target") {
-    const target = resolveWeightTarget(a, lastSettings);
-    if (target === null) {
-      const missing = (a.weight_formula === "bmi") ? "Height" : "Starting Weight";
-      rightSide = "<span class='ach-meta'>Set your " + missing + " in Settings to track this</span>";
-    } else if (lastSettings.current_weight) {
-      rightSide = "<span class='ach-meta'>Current: " + formatAmountForDisplay(lastSettings.current_weight) + " &middot; needs &le; " + formatAmountForDisplay(target) + "</span>";
-    } else {
-      rightSide = "<span class='ach-meta'>Set your Current Weight in Settings to track this</span>";
-    }
   } else {
     rightSide = "<button onclick='markAchieved(" + jsStringLiteral(a.id) + ")'>Mark as Achieved</button>";
   }
@@ -583,7 +510,7 @@ function renderRow(a) {
 }
 
 async function markAchieved(id) {
-  const today = localDateString();
+  const today = new Date().toISOString().slice(0, 10);
   const { error } = await sb.from("achievements").update({ date_earned: today }).eq("id", id);
   if (error) { alert("Could not update: " + error.message); return; }
   await loadAchievements();

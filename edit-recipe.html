@@ -120,6 +120,10 @@ window.addEventListener("load", async function() {
   apiGet("getFoodNames").then(function(json) { if (json.success) localFoodNames = json.data; });
   apiGet("getRecipeNames").then(function(json) { if (json.success) localRecipeNames = json.data; });
 
+  const params = new URLSearchParams(window.location.search);
+  const presetName = params.get("name");
+  if (presetName) loadRecipe(presetName);
+
 });
 
 function onSearchInput() {

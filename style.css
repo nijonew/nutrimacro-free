@@ -90,7 +90,7 @@ header a.back {
 }
 
 main {
-  padding: 0 20px 40px;
+  padding: 0 20px 100px;
   max-width: 480px;
   margin: 0 auto;
 }
@@ -304,25 +304,8 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* ============================================================
-   Global navigation menu (hamburger)
+   Side menu panel (opened via the bottom nav's "More" button)
    ============================================================ */
-
-.header-right-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.nav-toggle-btn {
-  width: auto;
-  background: transparent;
-  border: none;
-  font-size: 22px;
-  color: var(--ink);
-  padding: 4px 0 4px 4px;
-  cursor: pointer;
-  line-height: 1;
-}
 
 .nav-overlay {
   position: fixed;
@@ -406,3 +389,90 @@ input:focus, select:focus, textarea:focus {
 .total-tile.protein .pct-label { color: var(--protein); }
 .total-tile.carbs .pct-label { color: var(--carbs); }
 .total-tile.fat .pct-label { color: var(--fat); }
+
+/* ============================================================
+   Bottom navigation bar
+   ============================================================ */
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 900;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+}
+
+.bottom-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  background: transparent;
+  border: none;
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-family: 'Manrope', sans-serif;
+  width: auto;
+}
+
+.bottom-nav-btn.active { color: var(--accent); }
+.bottom-nav-btn:active { opacity: 0.7; }
+
+.bnav-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.bnav-icon.bnav-plus {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 22px;
+}
+
+.bnav-label {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Quick-add sheet (opened via the bottom nav's "+" button) */
+
+.quick-add-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 950;
+  display: none;
+  align-items: flex-end;
+}
+
+.quick-add-overlay.open {
+  display: flex;
+}
+
+.quick-add-sheet {
+  width: 100%;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  padding: 14px 10px calc(14px + env(safe-area-inset-bottom));
+  margin-bottom: 62px;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+}
+
+.quick-add-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.quick-add-item:active { background: var(--bg); }
+.quick-add-item .bnav-icon { font-size: 20px; }

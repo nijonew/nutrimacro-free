@@ -112,7 +112,7 @@
     <button class="secondary" onclick="updateEmail()">Update Email</button>
 
     <label for="newPasswordInput" style="margin-top:16px;">New Password</label>
-    <input type="password" id="newPasswordInput" placeholder="At least 8 characters">
+    <input type="password" id="newPasswordInput" placeholder="At least 6 characters">
     <button class="secondary" onclick="updatePassword()">Update Password</button>
 
     <div class="result-box" id="accountResultBox"></div>
@@ -216,7 +216,7 @@ async function updateEmail() {
 async function updatePassword() {
 
   const password = document.getElementById("newPasswordInput").value;
-  if (!password || password.length < 8) { showAccountResult(false, "Password must be at least 8 characters."); return; }
+  if (!password || password.length < 6) { showAccountResult(false, "Password must be at least 6 characters."); return; }
 
   const { error } = await sb.auth.updateUser({ password: password });
 
