@@ -139,7 +139,7 @@ window.addEventListener("load", async function() {
   const session = await requireAuth();
   if (!session) return;
 
-  document.getElementById("dateInput").valueAsDate = new Date();
+  document.getElementById("dateInput").value = localDateString();
   registerServiceWorker();
 
   await loadTodayIfExists();
@@ -233,12 +233,12 @@ async function loadRecentEntries() {
   listEl.innerHTML = data.map(function(row) {
 
     const parts = [];
-    if (row.weight) parts.push(row.weight + " wt");
+    if (row.weight) parts.push(formatAmountForDisplay(row.weight) + " wt");
     if (row.exercise_type) parts.push(row.exercise_type);
-    if (row.duration) parts.push(row.duration + " min");
-    if (row.distance) parts.push(row.distance + " dist");
+    if (row.duration) parts.push(formatAmountForDisplay(row.duration) + " min");
+    if (row.distance) parts.push(formatAmountForDisplay(row.distance) + " dist");
     if (row.steps) parts.push(row.steps + " steps");
-    if (row.sleep_hours) parts.push(row.sleep_hours + " hrs sleep");
+    if (row.sleep_hours) parts.push(formatAmountForDisplay(row.sleep_hours) + " hrs sleep");
     if (row.gym) parts.push("Gym");
     if (row.water_goal_met) parts.push("Water goal met");
 

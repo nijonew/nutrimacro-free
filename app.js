@@ -124,10 +124,14 @@ async function routeAction(action, params) {
     case "importFood": return callUsdaFunction("import", { fdcId: params.fdcId });
 
     case "getRecipeNames": return getRecipeNames();
-    case "saveRecipe": return saveRecipe(params.recipeName, params.ingredients, params.servings);
+    case "saveRecipe": return saveRecipe(params.recipeName, params.ingredients, params.servings, params.isShared);
     case "recalculateRecipe": return recalculateRecipe(params.recipeName);
     case "getRecipeForEditing": return getRecipeForEditing(params.name);
     case "deleteRecipe": return deleteRecipe(params.name);
+    case "browseSharedFoods": return browseSharedFoods();
+    case "importSharedFood": return importSharedFood(params.id);
+    case "browseSharedRecipes": return browseSharedRecipes();
+    case "importSharedRecipe": return importSharedRecipe(params.id, params.newName);
 
     case "getDailyLogEntries": return getDailyLogEntries(params.date);
     case "batchLogEntries": return batchLogEntries(params.entries);
@@ -195,7 +199,7 @@ async function getFoodDetails(name) {
     name: data.name, brand: data.brand, servingSize: data.serving_size, servingUnit: data.serving_unit,
     altServingSize: data.alt_serving_size, altServingUnit: data.alt_serving_unit,
     calories: data.calories, protein: data.protein, fat: data.fat, carbs: data.carbs, fiber: data.fiber,
-    notes: data.notes, favorite: data.favorite, active: data.active
+    notes: data.notes, favorite: data.favorite, active: data.active, isShared: data.is_shared
   };
 }
 
@@ -211,7 +215,7 @@ async function updateFood(originalName, fields) {
     alt_serving_unit: fields.altServingSize ? (fields.altServingUnit || null) : null,
     calories: Number(fields.calories) || 0, protein: Number(fields.protein) || 0,
     fat: Number(fields.fat) || 0, carbs: Number(fields.carbs) || 0, fiber: Number(fields.fiber) || 0,
-    notes: fields.notes || null, favorite: !!fields.favorite, updated_at: new Date().toISOString()
+    notes: fields.notes || null, favorite: !!fields.favorite, is_shared: !!fields.isShared, updated_at: new Date().toISOString()
   }).eq("id", existing.id).select("name").single();
 
   if (error) throw new Error(error.message);
@@ -233,7 +237,7 @@ async function addManualFood(fields) {
     alt_serving_unit: fields.altServingSize ? (fields.altServingUnit || null) : null,
     calories: Number(fields.calories) || 0, protein: Number(fields.protein) || 0,
     fat: Number(fields.fat) || 0, carbs: Number(fields.carbs) || 0, fiber: Number(fields.fiber) || 0,
-    notes: fields.notes || null, favorite: !!fields.favorite, active: true
+    notes: fields.notes || null, favorite: !!fields.favorite, is_shared: !!fields.isShared, active: true
   }).select("name").single();
 
   if (error) throw new Error(error.message);
@@ -260,7 +264,7 @@ async function findOrCreateRecipe(recipeName) {
   return data.id;
 }
 
-async function saveRecipe(recipeName, ingredients, servings) {
+async function saveRecipe(recipeName, ingredients, servings, isShared) {
 
   if (!recipeName || !ingredients || ingredients.length === 0) {
     throw new Error("Recipe name and at least one ingredient are required.");
@@ -285,8 +289,11 @@ async function saveRecipe(recipeName, ingredients, servings) {
     if (insertError) throw new Error(insertError.message);
   }
 
-  if (servings !== undefined && servings !== null && servings !== "") {
-    await sb.from("recipes").update({ servings: Number(servings) }).eq("id", recipeId);
+  const recipeUpdate = {};
+  if (servings !== undefined && servings !== null && servings !== "") recipeUpdate.servings = Number(servings);
+  if (isShared !== undefined) recipeUpdate.is_shared = !!isShared;
+  if (Object.keys(recipeUpdate).length > 0) {
+    await sb.from("recipes").update(recipeUpdate).eq("id", recipeId);
   }
 
   return calculateRecipeSummary(sb, recipeId);
@@ -300,7 +307,7 @@ async function saveRecipe(recipeName, ingredients, servings) {
  */
 async function getRecipeForEditing(recipeName) {
 
-  const { data: recipe, error } = await sb.from("recipes").select("id, servings").ilike("name", recipeName).maybeSingle();
+  const { data: recipe, error } = await sb.from("recipes").select("id, servings, is_shared").ilike("name", recipeName).maybeSingle();
   if (error) throw new Error(error.message);
   if (!recipe) throw new Error("Recipe not found: " + recipeName);
 
@@ -315,7 +322,7 @@ async function getRecipeForEditing(recipeName) {
     return { name: row.foods ? row.foods.name : "", amount: row.amount, unit: row.unit };
   });
 
-  return { servings: recipe.servings || 1, ingredients: ingredients };
+  return { servings: recipe.servings || 1, isShared: recipe.is_shared, ingredients: ingredients };
 
 }
 
@@ -334,6 +341,102 @@ async function deleteRecipe(recipeName) {
   const { error: deleteError } = await sb.from("recipes").delete().eq("id", recipe.id);
   if (deleteError) throw new Error(deleteError.message);
   return { deleted: true };
+}
+
+// ============================================================
+// Sharing — browse other users' shared foods/recipes and import
+// an independent copy. Uses narrow database functions (not the
+// regular foods/recipes RLS) so nothing about existing lookups
+// elsewhere in the app changes at all.
+// ============================================================
+
+async function browseSharedFoods() {
+  const { data, error } = await sb.rpc("get_shared_foods");
+  if (error) throw new Error(error.message);
+  return (data || []).map(function(row) {
+    return {
+      id: row.id, name: row.name, brand: row.brand,
+      servingSize: row.serving_size, servingUnit: row.serving_unit,
+      altServingSize: row.alt_serving_size, altServingUnit: row.alt_serving_unit,
+      calories: row.calories, protein: row.protein, fat: row.fat, carbs: row.carbs, fiber: row.fiber
+    };
+  });
+}
+
+async function importSharedFood(sharedFoodId) {
+
+  const { data: shared, error } = await sb.rpc("get_shared_foods");
+  if (error) throw new Error(error.message);
+  const food = (shared || []).find(function(f) { return f.id === sharedFoodId; });
+  if (!food) throw new Error("That shared food is no longer available.");
+
+  const { data: existing } = await sb.from("foods").select("id").ilike("name", food.name).maybeSingle();
+  if (existing) throw new Error("You already have a food named \"" + food.name + "\".");
+
+  const userId = await getCurrentUserId();
+
+  const { data, error: insertError } = await sb.from("foods").insert({
+    user_id: userId, name: food.name, source: "Shared Copy", brand: food.brand,
+    serving_size: food.serving_size, serving_unit: food.serving_unit,
+    alt_serving_size: food.alt_serving_size, alt_serving_unit: food.alt_serving_unit,
+    calories: food.calories, protein: food.protein, fat: food.fat, carbs: food.carbs, fiber: food.fiber,
+    favorite: false, active: true, is_shared: false
+  }).select("name").single();
+
+  if (insertError) throw new Error(insertError.message);
+  return { name: data.name };
+
+}
+
+async function browseSharedRecipes() {
+  const { data, error } = await sb.rpc("get_shared_recipes");
+  if (error) throw new Error(error.message);
+  return (data || []).map(function(row) { return { id: row.id, name: row.name, servings: row.servings }; });
+}
+
+async function importSharedRecipe(sharedRecipeId, newName) {
+
+  const { data: rows, error } = await sb.rpc("get_shared_recipe_details", { recipe_id_param: sharedRecipeId });
+  if (error) throw new Error(error.message);
+  if (!rows || rows.length === 0) throw new Error("That shared recipe is no longer available.");
+
+  const userId = await getCurrentUserId();
+  const recipeName = newName && newName.trim() ? newName.trim() : null;
+  if (!recipeName) throw new Error("A name for your copy is required.");
+
+  const { data: existingRecipe } = await sb.from("recipes").select("id").ilike("name", recipeName).maybeSingle();
+  if (existingRecipe) throw new Error("You already have a recipe named \"" + recipeName + "\".");
+
+  const { data: newRecipe, error: recipeError } = await sb.from("recipes")
+    .insert({ user_id: userId, name: recipeName, servings: rows[0].servings || 1 })
+    .select("id").single();
+  if (recipeError) throw new Error(recipeError.message);
+
+  for (const row of rows) {
+
+    let { data: food } = await sb.from("foods").select("id").ilike("name", row.ingredient_name).maybeSingle();
+
+    if (!food) {
+      const { data: createdFood, error: foodError } = await sb.from("foods").insert({
+        user_id: userId, name: row.ingredient_name, source: "Shared Copy", brand: row.ingredient_brand,
+        serving_size: row.serving_size, serving_unit: row.serving_unit,
+        alt_serving_size: row.alt_serving_size, alt_serving_unit: row.alt_serving_unit,
+        calories: row.calories, protein: row.protein, fat: row.fat, carbs: row.carbs, fiber: row.fiber,
+        favorite: false, active: true, is_shared: false
+      }).select("id").single();
+      if (foodError) throw new Error(foodError.message);
+      food = createdFood;
+    }
+
+    const { error: ingredientError } = await sb.from("recipe_ingredients").insert({
+      recipe_id: newRecipe.id, food_id: food.id, amount: row.amount, unit: row.unit
+    });
+    if (ingredientError) throw new Error(ingredientError.message);
+
+  }
+
+  return { name: recipeName };
+
 }
 
 async function recalculateRecipe(recipeName) {
