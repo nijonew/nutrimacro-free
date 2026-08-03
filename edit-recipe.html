@@ -58,6 +58,11 @@
     <label for="servingsInput">Servings this recipe makes</label>
     <input type="text" id="servingsInput" placeholder="1" value="1">
 
+    <div style="display:flex; align-items:center; gap:8px; margin-top:6px; margin-bottom:14px;">
+      <input type="checkbox" id="sharedInput" style="width:auto; margin:0;">
+      <label for="sharedInput" style="margin:0; font-weight:600; font-size:13px; color:var(--ink);">Share this recipe (other users can view &amp; import a copy)</label>
+    </div>
+
     <h2 style="margin-top:16px;">Ingredients</h2>
     <label for="ingredientSearch">Search your Foods</label>
     <input type="text" id="ingredientSearch" placeholder="Start typing a saved food..." oninput="onIngredientSearch()" onkeypress="if(event.key==='Enter'){event.preventDefault();onIngredientEnterPressed();}">
@@ -157,6 +162,7 @@ function loadRecipe(name) {
     document.getElementById("originalName").value = name;
     document.getElementById("editHeading").textContent = "Editing: " + name;
     document.getElementById("servingsInput").value = json.data.servings;
+    document.getElementById("sharedInput").checked = !!json.data.isShared;
 
     ingredients = json.data.ingredients.map(function(ing) {
       return { name: ing.name, amount: String(ing.amount), unit: ing.unit };
@@ -387,7 +393,8 @@ function saveChanges() {
   apiPost("saveRecipe", {
     recipeName: currentRecipeName,
     ingredients: payloadIngredients,
-    servings: document.getElementById("servingsInput").value.trim() || "1"
+    servings: document.getElementById("servingsInput").value.trim() || "1",
+    isShared: document.getElementById("sharedInput").checked
   }).then(function(json) {
 
     if (!json.success) { showResult(false, json.error); return; }

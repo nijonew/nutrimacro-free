@@ -119,6 +119,11 @@
       <label for="favoriteInput" style="margin:0; font-weight:600; font-size:13px; color:var(--ink);">Favorite (shows first in search)</label>
     </div>
 
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+      <input type="checkbox" id="sharedInput" style="width:auto; margin:0;">
+      <label for="sharedInput" style="margin:0; font-weight:600; font-size:13px; color:var(--ink);">Share this food (other users can view &amp; import a copy)</label>
+    </div>
+
     <button onclick="saveChanges()">Save Changes</button>
     <button class="secondary" style="margin-top:10px;" onclick="cancelEdit()">Cancel / Search Again</button>
     <div class="result-box" id="resultBox"></div>
@@ -203,6 +208,7 @@ function loadFood(name) {
     document.getElementById("fiberInput").value = f.fiber;
     document.getElementById("notesInput").value = f.notes || "";
     document.getElementById("favoriteInput").checked = !!f.favorite;
+    document.getElementById("sharedInput").checked = !!f.isShared;
 
     document.getElementById("searchCard").style.display = "none";
     document.getElementById("editCard").style.display = "block";
@@ -239,7 +245,8 @@ function saveChanges() {
     carbs: parseFloat(document.getElementById("carbsInput").value) || 0,
     fiber: parseFloat(document.getElementById("fiberInput").value) || 0,
     notes: document.getElementById("notesInput").value.trim(),
-    favorite: document.getElementById("favoriteInput").checked
+    favorite: document.getElementById("favoriteInput").checked,
+    isShared: document.getElementById("sharedInput").checked
   };
 
   if (!fields.name) { showResult(false, "Food name is required."); return; }

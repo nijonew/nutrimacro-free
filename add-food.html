@@ -107,6 +107,11 @@
     <label for="notesInput">Notes (optional)</label>
     <textarea id="notesInput" rows="2"></textarea>
 
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+      <input type="checkbox" id="sharedInput" style="width:auto; margin:0;">
+      <label for="sharedInput" style="margin:0; font-weight:600; font-size:13px; color:var(--ink);">Share this food (other users can view &amp; import a copy)</label>
+    </div>
+
     <button onclick="saveFood()">Save Food</button>
     <div class="result-box" id="resultBox"></div>
 
@@ -149,7 +154,8 @@ function saveFood() {
     fat: fat,
     carbs: carbs,
     fiber: parseFloat(document.getElementById("fiberInput").value) || 0,
-    notes: document.getElementById("notesInput").value.trim()
+    notes: document.getElementById("notesInput").value.trim(),
+    isShared: document.getElementById("sharedInput").checked
   };
 
   showResult(true, "Saving...");
@@ -174,6 +180,7 @@ function saveFood() {
     document.getElementById("carbsInput").value = "";
     document.getElementById("fiberInput").value = "";
     document.getElementById("notesInput").value = "";
+    document.getElementById("sharedInput").checked = false;
 
   }).catch(function(err) {
     showResult(false, "Could not reach the backend: " + err.message);

@@ -40,6 +40,44 @@
   .browse-item:last-child { border-bottom: none; }
   .browse-item:active { background: var(--bg); }
 
+  .shared-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    margin: 14px 0 4px;
+  }
+
+  .shared-section-title:first-child { margin-top: 0; }
+
+  .shared-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .shared-item:last-child { border-bottom: none; }
+
+  .shared-item .item-name {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .shared-item button {
+    width: auto;
+    padding: 8px 12px;
+    font-size: 12px;
+    margin: 0;
+  }
+
+  .shared-item button:disabled {
+    opacity: 0.6;
+  }
+
 </style>
 </head>
 <body>
@@ -66,6 +104,7 @@
     <div class="segmented">
       <button class="active" id="tabFoodsBtn" onclick="setTab('foods')">My Foods</button>
       <button id="tabRecipesBtn" onclick="setTab('recipes')">My Recipes</button>
+      <button id="tabSharedBtn" onclick="setTab('shared')">Shared</button>
     </div>
 
     <label for="searchInput">Search</label>
@@ -85,6 +124,10 @@
 let currentTab = "foods";
 let foodNames = [];
 let recipeNames = [];
+let sharedFoods = [];
+let sharedRecipes = [];
+let sharedLoaded = false;
+let sharedLoading = false;
 
 window.addEventListener("load", async function() {
 
@@ -109,14 +152,54 @@ function setTab(tab) {
   currentTab = tab;
   document.getElementById("tabFoodsBtn").classList.toggle("active", tab === "foods");
   document.getElementById("tabRecipesBtn").classList.toggle("active", tab === "recipes");
+  document.getElementById("tabSharedBtn").classList.toggle("active", tab === "shared");
   document.getElementById("searchInput").value = "";
+
+  if (tab === "shared" && !sharedLoaded && !sharedLoading) {
+    loadSharedData();
+    return;
+  }
+
   renderList();
+}
+
+function loadSharedData() {
+
+  sharedLoading = true;
+  document.getElementById("browseList").innerHTML = "<div class='empty-state'>Loading shared items...</div>";
+
+  Promise.all([
+    apiGet("browseSharedFoods"),
+    apiGet("browseSharedRecipes")
+  ]).then(function(results) {
+
+    const foodsJson = results[0];
+    const recipesJson = results[1];
+
+    if (foodsJson.success) sharedFoods = foodsJson.data;
+    if (recipesJson.success) sharedRecipes = recipesJson.data;
+
+    sharedLoaded = true;
+    sharedLoading = false;
+    renderList();
+
+  }).catch(function(err) {
+    sharedLoading = false;
+    document.getElementById("browseList").innerHTML = "<div class='empty-state'>Could not load shared items: " + escapeHtml(err.message) + "</div>";
+  });
+
 }
 
 function renderList() {
 
   const container = document.getElementById("browseList");
   const query = document.getElementById("searchInput").value.trim().toLowerCase();
+
+  if (currentTab === "shared") {
+    renderSharedList(container, query);
+    return;
+  }
+
   const source = currentTab === "foods" ? foodNames : recipeNames;
   const editPage = currentTab === "foods" ? "edit-food.html" : "edit-recipe.html";
 
@@ -135,6 +218,98 @@ function renderList() {
     return "<div class='browse-item' onclick=\"window.location.href='./" + editPage + "?name=" + encodeURIComponent(name) + "'\">" +
       escapeHtml(name) + "</div>";
   }).join("");
+
+}
+
+function renderSharedList(container, query) {
+
+  const filteredFoods = query ? sharedFoods.filter(function(f) { return f.name.toLowerCase().indexOf(query) !== -1; }) : sharedFoods;
+  const filteredRecipes = query ? sharedRecipes.filter(function(r) { return r.name.toLowerCase().indexOf(query) !== -1; }) : sharedRecipes;
+
+  if (sharedFoods.length === 0 && sharedRecipes.length === 0) {
+    container.innerHTML = "<div class='empty-state'>No one has shared any foods or recipes yet.</div>";
+    return;
+  }
+
+  if (filteredFoods.length === 0 && filteredRecipes.length === 0) {
+    container.innerHTML = "<div class='empty-state'>No matches.</div>";
+    return;
+  }
+
+  let html = "";
+
+  html += "<div class='shared-section-title'>Shared Foods (" + filteredFoods.length + ")</div>";
+  html += filteredFoods.length === 0
+    ? "<div class='empty-state'>No matching shared foods.</div>"
+    : filteredFoods.map(function(f) {
+        return "<div class='shared-item' id='sharedFood_" + escapeHtml(f.id) + "'>" +
+          "<span class='item-name'>" + escapeHtml(f.name) + (f.brand ? " <span style='font-weight:400; color:var(--ink-soft);'>&middot; " + escapeHtml(f.brand) + "</span>" : "") + "</span>" +
+          "<button class='secondary' onclick='importSharedFoodItem(" + jsStringLiteral(f.id) + ", " + jsStringLiteral(f.name) + ")'>Import</button>" +
+        "</div>";
+      }).join("");
+
+  html += "<div class='shared-section-title'>Shared Recipes (" + filteredRecipes.length + ")</div>";
+  html += filteredRecipes.length === 0
+    ? "<div class='empty-state'>No matching shared recipes.</div>"
+    : filteredRecipes.map(function(r) {
+        return "<div class='shared-item' id='sharedRecipe_" + escapeHtml(r.id) + "'>" +
+          "<span class='item-name'>" + escapeHtml(r.name) + "</span>" +
+          "<button class='secondary' onclick='importSharedRecipeItem(" + jsStringLiteral(r.id) + ", " + jsStringLiteral(r.name) + ")'>Import</button>" +
+        "</div>";
+      }).join("");
+
+  container.innerHTML = html;
+
+}
+
+function importSharedFoodItem(id, name) {
+
+  const row = document.getElementById("sharedFood_" + id);
+  const btn = row ? row.querySelector("button") : null;
+  if (btn) { btn.disabled = true; btn.textContent = "Importing..."; }
+
+  apiPost("importSharedFood", { id: id }).then(function(json) {
+
+    if (!json.success) {
+      if (btn) { btn.disabled = false; btn.textContent = "Import"; }
+      alert("Could not import: " + json.error);
+      return;
+    }
+
+    if (foodNames.indexOf(json.data.name) === -1) foodNames.push(json.data.name);
+    if (btn) { btn.textContent = "Imported ✓"; }
+
+  }).catch(function(err) {
+    if (btn) { btn.disabled = false; btn.textContent = "Import"; }
+    alert("Could not reach the backend: " + err.message);
+  });
+
+}
+
+function importSharedRecipeItem(id, name) {
+
+  const newName = prompt("Name for your copy of this recipe:", name);
+  if (!newName || !newName.trim()) return;
+
+  const row = document.getElementById("sharedRecipe_" + id);
+  const btn = row ? row.querySelector("button") : null;
+  if (btn) { btn.disabled = true; btn.textContent = "Importing..."; }
+
+  apiPost("importSharedRecipe", { id: id, newName: newName.trim() }).then(function(json) {
+
+    if (!json.success) {
+      if (btn) { btn.disabled = false; btn.textContent = "Import"; }
+      alert("Could not import: " + json.error);
+      return;
+    }
+
+    if (recipeNames.indexOf(json.data.name) === -1) recipeNames.push(json.data.name);
+    if (btn) { btn.textContent = "Imported ✓"; }
+
+  }).catch(function(err) {
+    if (btn) { btn.disabled = false; btn.textContent = "Import"; }
+    alert("Could not reach the backend: " + err.message);
+  });
 
 }
 
