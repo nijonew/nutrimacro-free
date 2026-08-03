@@ -37,15 +37,33 @@
     cursor: pointer;
   }
 
-  .password-toggle-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: -8px 0 14px;
+  .password-field-wrap {
+    position: relative;
   }
 
-  .password-toggle-row input[type="checkbox"] { width: auto; margin: 0; }
-  .password-toggle-row label { margin: 0; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+  .password-field-wrap input {
+    margin-bottom: 0;
+    padding-right: 42px;
+  }
+
+  .password-toggle-btn {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: auto;
+    margin: 0;
+    padding: 6px;
+    background: transparent;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .password-toggle-btn svg { display: block; }
 
 </style>
 </head>
@@ -66,14 +84,12 @@
     <h2 id="authHeading">Sign In</h2>
 
     <label for="emailInput">Email</label>
-    <input type="text" id="emailInput" placeholder="you@example.com" autocomplete="username">
+    <input type="text" id="emailInput" placeholder="you@example.com" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
 
     <label for="passwordInput">Password</label>
-    <input type="password" id="passwordInput" placeholder="At least 8 characters" autocomplete="current-password">
-
-    <div class="password-toggle-row">
-      <input type="checkbox" id="showPasswordCheck" onchange="toggleShowPassword()">
-      <label for="showPasswordCheck">Show password</label>
+    <div class="password-field-wrap">
+      <input type="password" id="passwordInput" placeholder="At least 8 characters" autocomplete="current-password">
+      <button type="button" class="password-toggle-btn" aria-label="Show password" onclick="togglePasswordVisibility('passwordInput', this)"></button>
     </div>
 
     <button id="authSubmitBtn" onclick="submitAuth()">Sign In</button>
@@ -94,10 +110,16 @@
     <div class="helper" style="margin-top:-4px;">You're here because you clicked a password reset link. Choose a new password below to finish.</div>
 
     <label for="newPasswordInput">New Password</label>
-    <input type="password" id="newPasswordInput" placeholder="At least 8 characters" autocomplete="new-password">
+    <div class="password-field-wrap">
+      <input type="password" id="newPasswordInput" placeholder="At least 8 characters" autocomplete="new-password">
+      <button type="button" class="password-toggle-btn" aria-label="Show password" onclick="togglePasswordVisibility('newPasswordInput', this)"></button>
+    </div>
 
     <label for="confirmPasswordInput">Confirm New Password</label>
-    <input type="password" id="confirmPasswordInput" placeholder="Re-enter your new password" autocomplete="new-password">
+    <div class="password-field-wrap">
+      <input type="password" id="confirmPasswordInput" placeholder="Re-enter your new password" autocomplete="new-password">
+      <button type="button" class="password-toggle-btn" aria-label="Show password" onclick="togglePasswordVisibility('confirmPasswordInput', this)"></button>
+    </div>
 
     <button onclick="submitNewPassword()">Set New Password</button>
     <div class="result-box" id="resetResultBox"></div>
@@ -129,6 +151,7 @@ sb.auth.onAuthStateChange(function(event, session) {
 window.addEventListener("load", async function() {
 
   registerServiceWorker();
+  initPasswordToggles();
 
   // Give onAuthStateChange a brief moment to fire for PASSWORD_RECOVERY
   // before deciding what to show, since it can arrive just after load.
@@ -158,9 +181,21 @@ function showResetForm() {
   document.getElementById("resetCard").style.display = "block";
 }
 
-function toggleShowPassword() {
-  const show = document.getElementById("showPasswordCheck").checked;
-  document.getElementById("passwordInput").type = show ? "text" : "password";
+const EYE_ICON = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'></path><circle cx='12' cy='12' r='3'></circle></svg>";
+const EYE_OFF_ICON = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24'></path><line x1='1' y1='1' x2='23' y2='23'></line></svg>";
+
+function initPasswordToggles() {
+  document.querySelectorAll(".password-toggle-btn").forEach(function(btn) {
+    btn.innerHTML = EYE_ICON;
+  });
+}
+
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const nowShowing = input.type === "password";
+  input.type = nowShowing ? "text" : "password";
+  btn.innerHTML = nowShowing ? EYE_OFF_ICON : EYE_ICON;
+  btn.setAttribute("aria-label", nowShowing ? "Hide password" : "Show password");
 }
 
 function setAuthMode(mode) {
