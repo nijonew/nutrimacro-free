@@ -139,7 +139,7 @@ window.addEventListener("load", async function() {
   const { data } = await sb.auth.getSession();
 
   if (data.session) {
-    window.location.href = "./today.html";
+    window.location.href = "./diary.html";
   } else {
     showAuthForm();
   }
@@ -226,7 +226,7 @@ function submitAuth() {
       return;
     }
 
-    window.location.href = "./today.html";
+    window.location.href = "./diary.html";
 
   }).catch(function(err) {
     // Deliberately generic on login failure — never confirm or deny
@@ -271,7 +271,7 @@ function submitNewPassword() {
   sb.auth.updateUser({ password: newPassword }).then(function(result) {
     if (result.error) { showResetResult(false, result.error.message); return; }
     showResetResult(true, "Password updated. Redirecting...");
-    setTimeout(function() { window.location.href = "./today.html"; }, 1200);
+    setTimeout(function() { window.location.href = "./diary.html"; }, 1200);
   }).catch(function(err) {
     showResetResult(false, err.message);
   });

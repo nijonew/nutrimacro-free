@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Diary</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1C2530">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+<style>
+
+  .date-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+  .date-nav button { width: auto; padding: 10px 16px; font-size: 18px; background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
+  .date-display { flex: 1; text-align: center; }
+  .date-friendly { font-family: 'Manrope', sans-serif; font-size: 19px; font-weight: 800; }
+  input[type="date"]#dateInput {
+    margin-bottom: 0; margin-top: 4px; font-size: 16px; padding: 8px; text-align: center;
+    background: var(--bg); color: var(--ink); border: 1.5px solid var(--line); border-radius: 10px;
+  }
+  input[type="date"]#dateInput::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(1.6);
+    cursor: pointer;
+  }
+
+  .totals-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .total-tile { background: var(--bg); border-radius: 10px; padding: 12px 10px; text-align: center; }
+  .total-tile .value { font-family: 'Manrope', sans-serif; font-size: 20px; font-weight: 800; }
+  .total-tile .label { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+  .total-tile.protein .value { color: var(--protein); }
+  .total-tile.carbs .value { color: var(--carbs); }
+  .total-tile.fat .value { color: var(--fat); }
+
+  .meal-group { margin-bottom: 18px; }
+  .meal-group:last-child { margin-bottom: 0; }
+  .meal-header { display: flex; align-items: baseline; margin-bottom: 6px; gap: 8px; }
+  .meal-header h3 { font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 800; margin: 0; }
+  .meal-header .meal-cal { font-size: 12px; color: var(--ink-soft); margin-left: auto; }
+  .meal-header-icons { display: flex; gap: 2px; }
+  .meal-header-icons button { width: auto; padding: 3px 6px; font-size: 16px; background: transparent; border: none; color: var(--ink-soft); position: relative; }
+
+  .gear-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    min-width: 190px;
+    z-index: 60;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  }
+  .gear-menu.open { display: block; }
+  .gear-menu-item {
+    padding: 12px 14px; font-size: 13px; font-weight: 600; color: var(--ink);
+    text-align: left; cursor: pointer; border-bottom: 1px solid var(--line);
+  }
+  .gear-menu-item:last-child { border-bottom: none; }
+  .gear-menu-item:active { background: var(--bg); }
+  .gear-menu-item.danger { color: var(--error); }
+
+  .repeat-panel { display: none; background: var(--bg); border-radius: 8px; padding: 10px; margin: 8px 0 14px; }
+  .repeat-panel.open { display: block; }
+  .repeat-panel .row-2 { margin-bottom: 8px; }
+  .repeat-panel input, .repeat-panel select { margin-bottom: 8px; }
+  .repeat-panel button { width: auto; padding: 8px 14px; font-size: 13px; margin-right: 6px; }
+
+  .entry-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .entry-row:last-child { border-bottom: none; }
+  .entry-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; }
+  .entry-name { font-weight: 600; }
+  .entry-meta { font-size: 12px; color: var(--ink-soft); margin-top: 3px; }
+  .entry-meta .protein { color: var(--protein); }
+  .entry-meta .carbs { color: var(--carbs); }
+  .entry-meta .fat { color: var(--fat); }
+
+  .entry-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .entry-actions button { width: auto; padding: 2px 6px; font-size: 13px; background: transparent; border: none; color: var(--ink-soft); }
+  .entry-actions .entry-delete-btn { color: var(--error); }
+
+  .entry-edit-form { display: none; background: var(--bg); border-radius: 8px; padding: 10px; margin-top: 8px; }
+  .entry-edit-form.open { display: block; }
+  .entry-edit-form .row-2 { margin-bottom: 0; }
+  .entry-edit-form input, .entry-edit-form select { margin-bottom: 8px; }
+  .entry-edit-form button { width: auto; padding: 8px 14px; font-size: 13px; margin-right: 6px; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <div class="eyebrow">Overview</div>
+    <h1>Diary</h1>
+  </div>
+</header>
+
+<main>
+
+  <div class="card">
+    <div class="date-nav">
+      <button onclick="shiftDate(-1)">&larr;</button>
+      <div class="date-display">
+        <div class="date-friendly" id="dateFriendly">–</div>
+        <input type="date" id="dateInput" onchange="onDateChange()">
+      </div>
+      <button onclick="shiftDate(1)">&rarr;</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="totals-grid">
+      <div class="total-tile">
+        <div class="value" id="totalCalories">–</div>
+        <div class="label">Calories</div>
+      </div>
+      <div class="total-tile protein">
+        <div class="pct-label" id="pctProtein"></div>
+        <div class="value" id="totalProtein">–</div>
+        <div class="label">Protein (g)</div>
+      </div>
+      <div class="total-tile carbs">
+        <div class="pct-label" id="pctCarbs"></div>
+        <div class="value" id="totalCarbs">–</div>
+        <div class="label">Carbs (g)</div>
+      </div>
+      <div class="total-tile fat">
+        <div class="pct-label" id="pctFat"></div>
+        <div class="value" id="totalFat">–</div>
+        <div class="label">Fat (g)</div>
+      </div>
+      <div class="total-tile">
+        <div class="value" id="totalFiber">–</div>
+        <div class="label">Fiber (g)</div>
+      </div>
+      <div class="total-tile">
+        <div class="value" id="totalNetCarbs">–</div>
+        <div class="label">Net Carbs (g)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="entriesList"><div class="empty-state">Loading...</div></div>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./calc.js"></script>
+<script src="./app.js"></script>
+<script>
+
+const MEAL_ORDER = ["Breakfast", "Lunch", "Dinner", "Snack", "Uncategorized"];
+let lastEntriesByMeal = {};
+
+window.addEventListener("load", async function() {
+
+  const session = await requireAuth();
+  if (!session) return;
+
+  registerServiceWorker();
+  document.getElementById("dateInput").value = localDateString();
+  updateFriendlyDate();
+
+  document.addEventListener("click", function(e) {
+    document.querySelectorAll(".gear-menu.open").forEach(function(menu) {
+      if (!menu.parentElement.contains(e.target)) menu.classList.remove("open");
+    });
+  });
+
+  loadDay();
+
+});
+
+function updateFriendlyDate() {
+  const dateStr = document.getElementById("dateInput").value;
+  const d = new Date(dateStr + "T00:00:00");
+  document.getElementById("dateFriendly").textContent = d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+}
+
+function onDateChange() {
+  updateFriendlyDate();
+  loadDay();
+}
+
+function shiftDate(days) {
+  const input = document.getElementById("dateInput");
+  const current = new Date(input.value + "T00:00:00");
+  current.setDate(current.getDate() + days);
+  input.value = localDateString(current);
+  updateFriendlyDate();
+  loadDay();
+}
+
+function todayString() {
+  return localDateString();
+}
+
+function loadDay() {
+
+  const date = document.getElementById("dateInput").value;
+  document.getElementById("entriesList").innerHTML = "<div class='empty-state'>Loading...</div>";
+  setTotals({ calories: "–", protein: "–", fat: "–", carbs: "–", fiber: "–", netCarbs: "–" });
+
+  apiGet("getDailyLogEntries", { date: date }).then(function(json) {
+    if (!json.success) { document.getElementById("entriesList").innerHTML = "<div class='empty-state'>" + escapeHtml(json.error) + "</div>"; return; }
+    setTotals(json.data.totals);
+    renderGroupedEntries(json.data.entries, date);
+  }).catch(function(err) {
+    document.getElementById("entriesList").innerHTML = "<div class='empty-state'>Could not reach the backend: " + escapeHtml(err.message) + "</div>";
+  });
+
+}
+
+function setTotals(totals) {
+  document.getElementById("totalCalories").textContent = formatAmountForDisplay(totals.calories);
+  document.getElementById("totalProtein").textContent = formatAmountForDisplay(totals.protein);
+  document.getElementById("totalCarbs").textContent = formatAmountForDisplay(totals.carbs);
+  document.getElementById("totalFat").textContent = formatAmountForDisplay(totals.fat);
+  document.getElementById("totalFiber").textContent = formatAmountForDisplay(totals.fiber);
+  document.getElementById("totalNetCarbs").textContent = formatAmountForDisplay(totals.netCarbs);
+  const pct = calculateMacroPercents(totals);
+  document.getElementById("pctProtein").textContent = totals.calories ? pct.protein + "%" : "";
+  document.getElementById("pctCarbs").textContent = totals.calories ? pct.carbs + "%" : "";
+  document.getElementById("pctFat").textContent = totals.calories ? pct.fat + "%" : "";
+}
+
+function renderGroupedEntries(entries, viewedDate) {
+
+  const container = document.getElementById("entriesList");
+
+  const groups = {};
+  entries.forEach(function(e) {
+    const meal = e.meal || "Uncategorized";
+    if (!groups[meal]) groups[meal] = [];
+    groups[meal].push(e);
+  });
+
+  lastEntriesByMeal = groups;
+
+  // Always show the four standard meals (so "+" is always reachable),
+  // plus Uncategorized only if it actually has entries.
+  const mealNames = ["Breakfast", "Lunch", "Dinner", "Snack"].concat(groups["Uncategorized"] ? ["Uncategorized"] : []);
+
+  container.innerHTML = mealNames.map(function(meal) {
+
+    const mealEntries = groups[meal] || [];
+    const mealCalories = mealEntries.reduce(function(sum, e) { return sum + (Number(e.calories) || 0); }, 0);
+    const safeMeal = jsStringLiteral(meal);
+
+    const entriesHtml = mealEntries.length === 0
+      ? "<div class='empty-state' style='padding:8px 0;'>Nothing logged yet.</div>"
+      : mealEntries.map(function(e) {
+          const safeId = jsStringLiteral(e.id);
+          return "<div class='entry-row'>" +
+            "<div class='entry-top'><span class='entry-name'>" + escapeHtml(e.name) + "</span>" +
+              "<span class='entry-actions'><button onclick='toggleEditEntry(" + safeId + ")'>&#9998;</button>" +
+              "<button class='entry-delete-btn' onclick='deleteEntry(" + safeId + ")'>&times;</button></span></div>" +
+            "<div class='entry-meta'>" + formatAmountForDisplay(e.amount) + " " + escapeHtml(e.unit) + " &middot; " +
+              formatAmountForDisplay(e.calories) + " cal &middot; <span class='protein'>" + formatAmountForDisplay(e.protein) + "g P</span> &middot; " +
+              "<span class='carbs'>" + formatAmountForDisplay(e.carbs) + "g C</span> &middot; <span class='fat'>" + formatAmountForDisplay(e.fat) + "g F</span></div>" +
+            (e.notes ? "<div class='entry-meta'>" + escapeHtml(e.notes) + "</div>" : "") +
+            "<div class='entry-edit-form' id='editForm_" + e.id + "'>" +
+              "<div class='row-2'><input type='text' id='editAmount_" + e.id + "' value='" + escapeHtml(e.amount) + "' placeholder='amount'>" +
+              "<select id='editUnit_" + e.id + "'>" +
+                ["g","kg","oz","lb","ml","l","tsp","tbsp","cup","fl_oz","piece","serving"].map(function(u) {
+                  const label = (u === "serving") ? "serving(s)" : (u === "piece") ? "piece(s)" : u;
+                  return "<option value='" + u + "'" + (e.unit === u ? " selected" : "") + ">" + label + "</option>";
+                }).join("") + "</select></div>" +
+              "<select id='editMeal_" + e.id + "'>" +
+                ["Breakfast","Lunch","Dinner","Snack"].map(function(m) { return "<option value='" + m + "'" + (e.meal === m ? " selected" : "") + ">" + m + "</option>"; }).join("") +
+              "</select>" +
+              "<button onclick='saveEntryEdit(" + safeId + ")'>Save</button>" +
+              "<button class='secondary' onclick='toggleEditEntry(" + safeId + ")'>Cancel</button>" +
+            "</div>" +
+          "</div>";
+        }).join("");
+
+    const gearMenu = "<div class='gear-menu' id='gearMenu_" + meal + "'>" +
+      "<div class='gear-menu-item' onclick='saveMealAsFavorite(" + safeMeal + ")'>&#9733; Favorite this meal</div>" +
+      "<div class='gear-menu-item' onclick='openCopyPanel(" + safeMeal + ")'>&#128257; Copy to another day</div>" +
+      "<div class='gear-menu-item danger' onclick='confirmDeleteMeal(" + safeMeal + ", " + jsStringLiteral(viewedDate) + ")'>&#128465; Delete this meal</div>" +
+    "</div>";
+
+    const repeatPanel = "<div class='repeat-panel' id='repeatPanel_" + meal + "'>" +
+      "<div class='row-2'>" +
+        "<div><label style='font-size:11px;'>To date</label><input type='date' id='repeatDate_" + meal + "'></div>" +
+        "<div><label style='font-size:11px;'>As meal</label><select id='repeatMealSelect_" + meal + "'>" +
+          ["Breakfast","Lunch","Dinner","Snack"].map(function(m) { return "<option value='" + m + "'" + (m === meal ? " selected" : "") + ">" + m + "</option>"; }).join("") +
+        "</select></div>" +
+      "</div>" +
+      "<button onclick='submitRepeatMeal(" + safeMeal + ", " + jsStringLiteral(viewedDate) + ")'>Copy</button>" +
+      "<button class='secondary' onclick='toggleRepeatPanel(" + jsStringLiteral(meal) + ")'>Cancel</button>" +
+    "</div>";
+
+    return "<div class='meal-group'>" +
+      "<div class='meal-header'>" +
+        "<h3>" + escapeHtml(meal) + "</h3>" +
+        "<span class='meal-header-icons'>" +
+          "<a href='./log.html?date=" + encodeURIComponent(viewedDate) + "&meal=" + encodeURIComponent(meal) + "' style='text-decoration:none; color:var(--accent); font-size:18px; font-weight:800; padding:2px 6px;'>&#43;</a>" +
+          "<button onclick='toggleGearMenu(" + jsStringLiteral(meal) + ")'>&#9881;" + gearMenu + "</button>" +
+        "</span>" +
+        "<span class='meal-cal'>" + Math.round(mealCalories) + " cal</span>" +
+      "</div>" +
+      repeatPanel + entriesHtml +
+    "</div>";
+
+  }).join("");
+
+}
+
+function toggleGearMenu(meal) {
+  const menu = document.getElementById("gearMenu_" + meal);
+  const wasOpen = menu.classList.contains("open");
+  document.querySelectorAll(".gear-menu.open").forEach(function(m) { m.classList.remove("open"); });
+  if (!wasOpen) menu.classList.add("open");
+}
+
+function openCopyPanel(meal) {
+  toggleGearMenu(meal); // close the gear menu
+  toggleRepeatPanel(meal);
+}
+
+function toggleRepeatPanel(meal) {
+  const panel = document.getElementById("repeatPanel_" + meal);
+  const isOpening = !panel.classList.contains("open");
+  panel.classList.toggle("open");
+  if (isOpening) {
+    document.getElementById("repeatDate_" + meal).value = document.getElementById("dateInput").value;
+  }
+}
+
+function submitRepeatMeal(meal, sourceDate) {
+
+  const targetDate = document.getElementById("repeatDate_" + meal).value;
+  const targetMeal = document.getElementById("repeatMealSelect_" + meal).value;
+
+  if (!targetDate) { alert("Choose a date."); return; }
+
+  apiPost("repeatMeal", { sourceDate: sourceDate, meal: meal, targetDate: targetDate, targetMeal: targetMeal }).then(function(json) {
+    if (!json.success) { alert("Could not copy meal: " + json.error); return; }
+    alert("Copied " + json.data.count + " item(s) to " + targetMeal + " on " + targetDate + ".");
+    document.getElementById("repeatPanel_" + meal).classList.remove("open");
+    if (targetDate === document.getElementById("dateInput").value) loadDay();
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+
+}
+
+function confirmDeleteMeal(meal, date) {
+  toggleGearMenu(meal); // close the gear menu
+  if (!confirm("Delete all of " + meal + " for this day? This can't be undone.")) return;
+  apiPost("deleteMeal", { date: date, meal: meal }).then(function(json) {
+    if (!json.success) { alert("Could not delete meal: " + json.error); return; }
+    loadDay();
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+}
+
+function saveMealAsFavorite(meal) {
+
+  toggleGearMenu(meal); // close the gear menu
+
+  const entries = lastEntriesByMeal[meal];
+  if (!entries || entries.length === 0) { alert("Nothing logged in " + meal + " yet."); return; }
+
+  const name = prompt("Name this favorite meal (e.g. \"Usual " + meal + "\"):", meal);
+  if (!name || !name.trim()) return;
+
+  const items = entries.map(function(e) { return { name: e.name, type: e.type, amount: e.amount, unit: e.unit }; });
+
+  apiPost("saveFavoriteMeal", { name: name.trim(), items: items }).then(function(json) {
+    if (!json.success) { alert("Could not save favorite meal: " + json.error); return; }
+    alert("Saved \"" + name.trim() + "\" as a favorite meal.");
+  }).catch(function(err) {
+    alert("Could not reach the backend: " + err.message);
+  });
+
+}
+
+function toggleEditEntry(id) { document.getElementById("editForm_" + id).classList.toggle("open"); }
+
+function saveEntryEdit(id) {
+  const amount = parseFloat(document.getElementById("editAmount_" + id).value);
+  const unit = document.getElementById("editUnit_" + id).value;
+  const meal = document.getElementById("editMeal_" + id).value;
+  if (!amount || isNaN(amount) || amount <= 0) { alert("Enter a valid amount."); return; }
+  apiPost("updateDailyLogEntry", { id: id, amount: amount, unit: unit, meal: meal }).then(function(json) {
+    if (!json.success) { alert("Could not update entry: " + json.error); return; }
+    loadDay();
+  }).catch(function(err) { alert("Could not reach the backend: " + err.message); });
+}
+
+function deleteEntry(id) {
+  if (!confirm("Remove this entry from your log?")) return;
+  apiPost("deleteDailyLogEntry", { id: id }).then(function(json) {
+    if (!json.success) { alert("Could not delete entry: " + json.error); return; }
+    loadDay();
+  }).catch(function(err) { alert("Could not reach the backend: " + err.message); });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
+</script>
+
+</body>
+</html>

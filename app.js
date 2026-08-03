@@ -1074,7 +1074,7 @@ function injectBottomNav() {
   };
 
   nav.innerHTML =
-    "<a class='bottom-nav-btn" + isActive(["today.html"]) + "' href='./today.html'>" +
+    "<a class='bottom-nav-btn" + isActive(["diary.html"]) + "' href='./diary.html'>" +
       "<span class='bnav-icon'>&#128214;</span><span class='bnav-label'>Diary</span>" +
     "</a>" +
     "<button class='bottom-nav-btn" + isActive(["log.html", "workout.html", "progress.html"]) + "' onclick='toggleQuickAddSheet()'>" +
