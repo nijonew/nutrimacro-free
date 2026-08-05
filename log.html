@@ -43,6 +43,29 @@
 
   #quickCreateForm { display: none; margin-top: 12px; }
 
+  .cart-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .cart-item:last-child { border-bottom: none; }
+  .cart-item-info { flex: 1; min-width: 0; }
+  .cart-item-name { font-weight: 700; font-size: 14px; }
+  .cart-item-meta { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .cart-item-remove {
+    width: auto; padding: 4px 8px; background: transparent; border: none;
+    color: var(--error); font-size: 18px; flex-shrink: 0;
+  }
+
+  .cart-count-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px;
+    background: var(--accent); color: var(--accent-ink);
+    font-size: 11px; font-weight: 800; margin-left: 6px;
+  }
+
 </style>
 </head>
 <body>
@@ -127,15 +150,21 @@
       <select id="pendingMeal">
         <option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option>
       </select>
+
+      <label for="pendingNotes">Notes (optional)</label>
+      <input type="text" id="pendingNotes" placeholder="e.g. extra hungry today">
+
+      <button onclick="addToList()">+ Add to List</button>
     </div>
 
   </div>
 
-  <div class="card">
-    <label for="notesInput">Notes (optional)</label>
-    <textarea id="notesInput" rows="2"></textarea>
-    <button onclick="submitLog()">Submit Log</button>
+  <div class="card" id="cartCard" style="display:none;">
+    <h2>Today's List<span class="cart-count-badge" id="cartCountBadge">0</span></h2>
+    <div id="cartList"></div>
+    <button style="margin-top:14px;" id="saveAllBtn" onclick="saveAllEntries()">Save All</button>
     <div class="result-box" id="submitResultBox"></div>
+    <div id="submitLog" style="margin-top:10px;"></div>
   </div>
 
 </main>
@@ -151,6 +180,9 @@ let localRecipeNames = [];
 let recentItems = [];
 let pendingItem = null; // { name, type, unit }
 let presetMeal = null;
+let lastUsedMeal = null;
+let cartItems = []; // { id, type, name, amount, unit, meal, notes }
+let cartIdCounter = 0;
 
 window.addEventListener("load", async function() {
 
@@ -307,7 +339,8 @@ function selectPending(name, type, unit, details) {
   document.getElementById("pendingItemLabel").textContent = name + (type === "Recipe" ? " (Recipe)" : "");
   document.getElementById("pendingUnit").value = unit;
   document.getElementById("pendingAmount").value = "";
-  document.getElementById("pendingMeal").value = presetMeal || smartDefaultMeal();
+  document.getElementById("pendingMeal").value = lastUsedMeal || presetMeal || smartDefaultMeal();
+  document.getElementById("pendingNotes").value = "";
 
   const hintEl = document.getElementById("pendingItemHint");
   if (details && details.servingSize) {
@@ -421,39 +454,125 @@ function closeBarcodeScanner() {
 }
 
 // ============================================================
-// SUBMIT
+// BUILD LIST, THEN SAVE ALL AT ONCE
 // ============================================================
 
-function submitLog() {
+function addToList() {
 
   if (!pendingItem) { showSubmitResult(false, "Choose a food or recipe first."); return; }
 
   const amount = parseFloat(document.getElementById("pendingAmount").value);
   if (!amount || isNaN(amount) || amount <= 0) { showSubmitResult(false, "Enter a valid amount."); return; }
 
-  const entry = {
-    date: document.getElementById("dateInput").value,
-    meal: document.getElementById("pendingMeal").value,
+  const meal = document.getElementById("pendingMeal").value;
+
+  cartItems.push({
+    id: ++cartIdCounter,
     type: pendingItem.type,
     name: pendingItem.name,
     amount: amount,
     unit: document.getElementById("pendingUnit").value,
-    notes: document.getElementById("notesInput").value.trim()
-  };
+    meal: meal,
+    notes: document.getElementById("pendingNotes").value.trim()
+  });
 
-  showSubmitResult(true, "Logging...");
+  lastUsedMeal = meal;
 
-  apiPost("batchLogEntries", { entries: [entry] }).then(function(json) {
+  clearPendingItem();
+  showSubmitResult(false, ""); // clear any old message
+  renderCartList();
+
+  // Ready for the next item right away
+  document.getElementById("itemSearchInput").focus();
+
+}
+
+function removeCartItem(id) {
+  cartItems = cartItems.filter(function(item) { return item.id !== id; });
+  renderCartList();
+}
+
+function renderCartList() {
+
+  const card = document.getElementById("cartCard");
+  const listEl = document.getElementById("cartList");
+  const badge = document.getElementById("cartCountBadge");
+
+  badge.textContent = cartItems.length;
+
+  if (cartItems.length === 0) {
+    card.style.display = "none";
+    return;
+  }
+
+  card.style.display = "block";
+
+  listEl.innerHTML = cartItems.map(function(item) {
+    return "<div class='cart-item'>" +
+      "<div class='cart-item-info'>" +
+        "<div class='cart-item-name'>" + escapeHtml(item.name) + (item.type === "Recipe" ? " (Recipe)" : "") + "</div>" +
+        "<div class='cart-item-meta'>" + formatAmountForDisplay(item.amount) + " " + escapeHtml(item.unit) + " &middot; " + escapeHtml(item.meal) + "</div>" +
+      "</div>" +
+      "<button class='cart-item-remove' onclick='removeCartItem(" + item.id + ")'>&times;</button>" +
+    "</div>";
+  }).join("");
+
+}
+
+function saveAllEntries() {
+
+  if (cartItems.length === 0) return;
+
+  const date = document.getElementById("dateInput").value;
+  const saveBtn = document.getElementById("saveAllBtn");
+  const logEl = document.getElementById("submitLog");
+
+  const entries = cartItems.map(function(item) {
+    return {
+      date: date,
+      meal: item.meal,
+      type: item.type,
+      name: item.name,
+      amount: item.amount,
+      unit: item.unit,
+      notes: item.notes
+    };
+  });
+
+  saveBtn.disabled = true;
+  showSubmitResult(true, "Saving " + entries.length + " item(s)...");
+  logEl.innerHTML = "";
+
+  apiPost("batchLogEntries", { entries: entries }).then(function(json) {
+
+    saveBtn.disabled = false;
+
     if (!json.success) { showSubmitResult(false, json.error); return; }
-    const result = json.data[0];
-    if (!result.success) { showSubmitResult(false, result.error); return; }
 
-    showSubmitResult(true, "Logged " + entry.name + ".");
-    clearPendingItem();
-    document.getElementById("notesInput").value = "";
+    let successCount = 0;
+    const stillFailed = [];
+
+    json.data.forEach(function(result, i) {
+      const row = document.createElement("div");
+      row.className = "import-status-row " + (result.success ? "ok" : "fail");
+      row.style.cssText = "display:flex; justify-content:space-between; font-size:13px; padding:6px 0; border-bottom:1px solid var(--line);";
+      row.innerHTML = "<span>" + escapeHtml(entries[i].name) + "</span><span style='color:" + (result.success ? "var(--success)" : "var(--error)") + ";'>" +
+        (result.success ? "&#10003; Logged" : escapeHtml(result.error)) + "</span>";
+      logEl.appendChild(row);
+
+      if (result.success) successCount++; else stillFailed.push(cartItems[i]);
+    });
+
+    showSubmitResult(successCount === entries.length, "Saved " + successCount + " of " + entries.length + " item(s)" + (stillFailed.length > 0 ? " -- fix the failed ones below and save again." : "."));
+
+    // Keep only the ones that failed, so the person doesn't have to redo everything
+    cartItems = stillFailed;
+    renderCartList();
+
     apiGet("getRecentFoods", { limit: 15 }).then(function(j) { if (j.success) recentItems = j.data; });
 
   }).catch(function(err) {
+    saveBtn.disabled = false;
     showSubmitResult(false, "Could not reach the backend: " + err.message);
   });
 
@@ -461,6 +580,7 @@ function submitLog() {
 
 function showSubmitResult(ok, message) {
   const box = document.getElementById("submitResultBox");
+  if (!message) { box.className = "result-box"; box.textContent = ""; return; }
   box.className = "result-box " + (ok ? "ok" : "error");
   box.textContent = message;
 }

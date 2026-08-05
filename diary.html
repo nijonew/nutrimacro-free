@@ -13,12 +13,13 @@
 <style>
 
   .date-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
-  .date-nav button { width: auto; padding: 10px 16px; font-size: 18px; background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); }
-  .date-display { flex: 1; text-align: center; }
+  .date-nav button { width: auto; padding: 10px 16px; font-size: 18px; background: var(--surface); border: 1.5px solid var(--line); color: var(--ink); flex-shrink: 0; }
+  .date-display { flex: 1; text-align: center; min-width: 0; }
   .date-friendly { font-family: 'Manrope', sans-serif; font-size: 19px; font-weight: 800; }
   input[type="date"]#dateInput {
     margin-bottom: 0; margin-top: 4px; font-size: 16px; padding: 8px; text-align: center;
     background: var(--bg); color: var(--ink); border: 1.5px solid var(--line); border-radius: 10px;
+    width: 100%; min-width: 0;
   }
   input[type="date"]#dateInput::-webkit-calendar-picker-indicator {
     filter: invert(1) brightness(1.6);
@@ -39,7 +40,8 @@
   .meal-header h3 { font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 800; margin: 0; }
   .meal-header .meal-cal { font-size: 12px; color: var(--ink-soft); margin-left: auto; }
   .meal-header-icons { display: flex; gap: 2px; }
-  .meal-header-icons button { width: auto; padding: 3px 6px; font-size: 16px; background: transparent; border: none; color: var(--ink-soft); position: relative; }
+  .meal-header-icons button { width: auto; padding: 2px 4px; font-size: 12px; background: transparent; border: none; color: var(--ink-soft); }
+  .gear-menu-wrap { position: relative; display: inline-flex; }
 
   .gear-menu {
     display: none;
@@ -302,7 +304,10 @@ function renderGroupedEntries(entries, viewedDate) {
         "<h3>" + escapeHtml(meal) + "</h3>" +
         "<span class='meal-header-icons'>" +
           "<a href='./log.html?date=" + encodeURIComponent(viewedDate) + "&meal=" + encodeURIComponent(meal) + "' style='text-decoration:none; color:var(--accent); font-size:18px; font-weight:800; padding:2px 6px;'>&#43;</a>" +
-          "<button onclick='toggleGearMenu(" + jsStringLiteral(meal) + ")'>&#9881;" + gearMenu + "</button>" +
+          "<span class='gear-menu-wrap'>" +
+            "<button onclick='toggleGearMenu(" + jsStringLiteral(meal) + ")'>&#9881;</button>" +
+            gearMenu +
+          "</span>" +
         "</span>" +
         "<span class='meal-cal'>" + Math.round(mealCalories) + " cal</span>" +
       "</div>" +
